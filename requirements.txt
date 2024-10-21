@@ -1,0 +1,11 @@
+torch
+transformers
+accelerate
+huggingface_hub
+sentencepiece
+bitsandbytes
+faiss-cpu
+datasets
+peft
+trl
+pymupdf
