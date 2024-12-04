@@ -9,3 +9,9 @@ datasets
 peft
 trl
 pymupdf
+
+pypdf
+pydantic
+
+chromadb
+langchain-chroma
