@@ -82,7 +82,60 @@ if __name__ == "__main__":
         Here is the document:
         {input_text}
         """
-    extraction_prompt = PromptTemplate(template=extraction_prompt_template)
+    detailed_json_structure = """
+        Extract the following details from the input document and format them into well-organized nested JSON, grouping information logically:
+        {{
+          "EventDetails": {{"EventName": "", "Location": "", "Date": "", "PublishDate": ""}},
+          "MediaSpecifications": {{
+            "MediaName": "",
+            "MediaType": "",
+            "MediaWeight": "",
+            "EnvironmentalCertifications": [],
+            "StarMedia": ""
+          }},
+          "PrintSpecs": {{
+            "PressModel": "",
+            "PrintMode": "",
+            "InkType": "",
+            "DryerSettingsRange": "",
+            "PrintSpeedRange": ""
+          }},
+          "Process": {{
+            "Optimizer": "",
+            "MoisturizerStatus": "",
+            "Tension": "",
+            "SetupComments": ""
+          }},
+          "Contact": {{"Email": ""}},
+          "Additional": {{"PrintedImages": [], "RecipeForSuccess": ""}}
+        }}
+        Make sure all details are accurate and indicate missing or ambiguous values as "N/A". Input: {input_text}
+        """
+
+    role_specific = """
+    Imagine you're designing a system for automated report processing. Your task is to extract key structured details in JSON format from the given document:
+
+    Group event details (name, location, date).
+    Capture all press-related parameters (model, ink type, dryer settings).
+    Extract media-specific details (type, weight, certifications).
+    Parse any process-related comments (optimizer, moisturizer, tension). If data is missing, mark it as 'N/A' and add any detected issues under a separate issues section. Use this as input: {input_text}"""
+
+    error_handling = """
+    Extract the following details from the document and format them in JSON. Handle missing or ambiguous data and include an errors section for issues. Key details to extract:
+    
+    Event Details: Event Name, Location, Date, Publish Date, Event ID.
+    Media Specifications: Media Name, Type, Weight, Certifications, Star Media.
+    Print and Press Details: Press Model, Print Mode, Ink Coverage, ICC Profiles, Speed Range, Dryer Settings.
+    Process Parameters: Optimizer, Moisturizer, Tension, Setup Comments, Recipe for Success.
+    Contact and Delivery: Delivered To, Printed At, Contact Email.
+    Additional Info: Printed Images, Job Description.
+    
+    For checkbox fields, determine their state: If marked, label as "checked".If unmarked, label as "unchecked". If the status is unclear or missing, label as "missing" and include a note in an errors section.
+    For missing fields, return "N/A" as the value and add a corresponding entry in an errors section describing the issue (e.g., 'Field not found in the document').
+    {input_text}
+    """
+
+    extraction_prompt = PromptTemplate(template=error_handling)
 
     structured_data = extract_information_with_llama3_2(pdf_text, model, extraction_prompt)
 

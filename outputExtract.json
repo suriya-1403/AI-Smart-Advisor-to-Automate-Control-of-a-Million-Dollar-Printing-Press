@@ -1,0 +1,826 @@
+[
+    {
+        "page": 1,
+        "checkbox_text_mapping": [
+            {
+                "checkbox": {
+                    "x0": 18.06,
+                    "x1": 585.2399999999999,
+                    "top": 54.120000000000005,
+                    "bottom": 82.91999999999996
+                },
+                "associated_text": "Vegas, NV"
+            },
+            {
+                "checkbox": {
+                    "x0": 18.0,
+                    "x1": 585.3,
+                    "top": 54.05994099999998,
+                    "bottom": 54.120000000000005
+                },
+                "associated_text": "Vegas, NV"
+            },
+            {
+                "checkbox": {
+                    "x0": 585.24,
+                    "x1": 585.299937,
+                    "top": 54.06000000000006,
+                    "bottom": 82.98000000000002
+                },
+                "associated_text": ""
+            },
+            {
+                "checkbox": {
+                    "x0": 18.0,
+                    "x1": 585.3,
+                    "top": 82.919941,
+                    "bottom": 82.98000000000002
+                },
+                "associated_text": "Vegas, NV"
+            },
+            {
+                "checkbox": {
+                    "x0": 18.0,
+                    "x1": 18.059998,
+                    "top": 54.06000000000006,
+                    "bottom": 82.98000000000002
+                },
+                "associated_text": "Live at the"
+            },
+            {
+                "checkbox": {
+                    "x0": 18.0,
+                    "x1": 585.24,
+                    "top": 18.0,
+                    "bottom": 54.059999999999945
+                },
+                "associated_text": "Media News"
+            },
+            {
+                "checkbox": {
+                    "x0": 18.0,
+                    "x1": 585.24,
+                    "top": 82.62,
+                    "bottom": 104.22000000000003
+                },
+                "associated_text": "Vegas, NV"
+            },
+            {
+                "checkbox": {
+                    "x0": 21.0,
+                    "x1": 117.06,
+                    "top": 213.24,
+                    "bottom": 297.36
+                },
+                "associated_text": "technology brings"
+            },
+            {
+                "checkbox": {
+                    "x0": 123.06,
+                    "x1": 222.12,
+                    "top": 207.24,
+                    "bottom": 303.36
+                },
+                "associated_text": "the benefits of brighter"
+            },
+            {
+                "checkbox": {
+                    "x0": 123.06,
+                    "x1": 222.12,
+                    "top": 207.24,
+                    "bottom": 303.36
+                },
+                "associated_text": "the benefits of brighter"
+            },
+            {
+                "checkbox": {
+                    "x0": 24.0,
+                    "x1": 69.0,
+                    "top": 21.0,
+                    "bottom": 51.059999999999945
+                },
+                "associated_text": ""
+            },
+            {
+                "checkbox": {
+                    "x0": 24.0,
+                    "x1": 69.0,
+                    "top": 21.0,
+                    "bottom": 51.059999999999945
+                },
+                "associated_text": ""
+            },
+            {
+                "checkbox": {
+                    "x0": 19.02,
+                    "x1": 581.28,
+                    "top": 868.98,
+                    "bottom": 945.06
+                },
+                "associated_text": "jobs for success to get a copy of the"
+            },
+            {
+                "checkbox": {
+                    "x0": 18.0,
+                    "x1": 583.26,
+                    "top": 867.0,
+                    "bottom": 869.04
+                },
+                "associated_text": "jobs for success to get a copy of the"
+            },
+            {
+                "checkbox": {
+                    "x0": 581.28,
+                    "x1": 583.26,
+                    "top": 867.0,
+                    "bottom": 946.14
+                },
+                "associated_text": ""
+            },
+            {
+                "checkbox": {
+                    "x0": 18.0,
+                    "x1": 583.26,
+                    "top": 945.06,
+                    "bottom": 946.14
+                },
+                "associated_text": "Pixelle Speciality Solutions"
+            },
+            {
+                "checkbox": {
+                    "x0": 18.0,
+                    "x1": 18.95999,
+                    "top": 867.0,
+                    "bottom": 946.14
+                },
+                "associated_text": "We"
+            },
+            {
+                "checkbox": {
+                    "x0": 18.0,
+                    "x1": 582.24,
+                    "top": 849.96,
+                    "bottom": 871.56
+                },
+                "associated_text": "jobs for success"
+            },
+            {
+                "checkbox": {
+                    "x0": 18.0,
+                    "x1": 585.24,
+                    "top": 306.36,
+                    "bottom": 327.96000000000004
+                },
+                "associated_text": ""
+            },
+            {
+                "checkbox": {
+                    "x0": 18.0,
+                    "x1": 582.24,
+                    "top": 620.22,
+                    "bottom": 641.8199999999999
+                },
+                "associated_text": "Media: Media"
+            },
+            {
+                "checkbox": {
+                    "x0": 27.0,
+                    "x1": 172.44,
+                    "top": 466.980002,
+                    "bottom": 467.03999999999996
+                },
+                "associated_text": "at the HP Location: at the HP Booth!"
+            },
+            {
+                "checkbox": {
+                    "x0": 172.38,
+                    "x1": 172.440013,
+                    "top": 466.98,
+                    "bottom": 484.38
+                },
+                "associated_text": "Location: Type of Commercial"
+            },
+            {
+                "checkbox": {
+                    "x0": 27.0,
+                    "x1": 172.44,
+                    "top": 484.32000200000004,
+                    "bottom": 484.38
+                },
+                "associated_text": "at the HP Booth! Images below:"
+            },
+            {
+                "checkbox": {
+                    "x0": 27.0,
+                    "x1": 27.059998,
+                    "top": 466.98,
+                    "bottom": 484.38
+                },
+                "associated_text": "Printed at Live at the"
+            },
+            {
+                "checkbox": {
+                    "x0": 24.0,
+                    "x1": 252.0,
+                    "top": 667.500002,
+                    "bottom": 667.56
+                },
+                "associated_text": "Model: Press w/Active"
+            },
+            {
+                "checkbox": {
+                    "x0": 251.94,
+                    "x1": 251.999998,
+                    "top": 667.5,
+                    "bottom": 684.96
+                },
+                "associated_text": "Media"
+            },
+            {
+                "checkbox": {
+                    "x0": 24.0,
+                    "x1": 252.0,
+                    "top": 684.900002,
+                    "bottom": 684.96
+                },
+                "associated_text": "Press w/Active"
+            },
+            {
+                "checkbox": {
+                    "x0": 24.0,
+                    "x1": 24.059998,
+                    "top": 667.5,
+                    "bottom": 684.96
+                },
+                "associated_text": "HP Press A 2200 3"
+            },
+            {
+                "checkbox": {
+                    "x0": 24.0,
+                    "x1": 162.12,
+                    "top": 714.300002,
+                    "bottom": 714.36
+                },
+                "associated_text": "Print Mode: Performance HDK"
+            },
+            {
+                "checkbox": {
+                    "x0": 162.06,
+                    "x1": 162.119998,
+                    "top": 714.3,
+                    "bottom": 731.76
+                },
+                "associated_text": "Brilliant"
+            },
+            {
+                "checkbox": {
+                    "x0": 24.0,
+                    "x1": 162.12,
+                    "top": 731.700002,
+                    "bottom": 731.76
+                },
+                "associated_text": "Performance HDK Profiles used in this"
+            },
+            {
+                "checkbox": {
+                    "x0": 24.0,
+                    "x1": 24.059998,
+                    "top": 714.3,
+                    "bottom": 731.76
+                },
+                "associated_text": "HP Print Performance"
+            },
+            {
+                "checkbox": {
+                    "x0": 187.56,
+                    "x1": 364.26,
+                    "top": 466.980002,
+                    "bottom": 467.03999999999996
+                },
+                "associated_text": "Print Application:"
+            },
+            {
+                "checkbox": {
+                    "x0": 364.2,
+                    "x1": 364.259998,
+                    "top": 466.98,
+                    "bottom": 484.38
+                },
+                "associated_text": "Short WOW 2"
+            },
+            {
+                "checkbox": {
+                    "x0": 187.56,
+                    "x1": 364.26,
+                    "top": 484.32000200000004,
+                    "bottom": 484.38
+                },
+                "associated_text": ""
+            },
+            {
+                "checkbox": {
+                    "x0": 187.56,
+                    "x1": 187.619998,
+                    "top": 466.98,
+                    "bottom": 484.38
+                },
+                "associated_text": "Type of Commercial"
+            },
+            {
+                "checkbox": {
+                    "x0": 393.9,
+                    "x1": 579.36,
+                    "top": 667.500002,
+                    "bottom": 667.56
+                },
+                "associated_text": "Average Ink Coverage Ink Coverage (35-50%)"
+            },
+            {
+                "checkbox": {
+                    "x0": 579.3,
+                    "x1": 579.360059,
+                    "top": 667.5,
+                    "bottom": 684.96
+                },
+                "associated_text": "Class: (35-50%)"
+            },
+            {
+                "checkbox": {
+                    "x0": 393.9,
+                    "x1": 579.36,
+                    "top": 684.900002,
+                    "bottom": 684.96
+                },
+                "associated_text": "Ink Coverage (35-50%) Print Speed Range"
+            },
+            {
+                "checkbox": {
+                    "x0": 393.9,
+                    "x1": 393.959998,
+                    "top": 667.5,
+                    "bottom": 684.96
+                },
+                "associated_text": "Class: Average Heavy"
+            },
+            {
+                "checkbox": {
+                    "x0": 24.0,
+                    "x1": 252.0,
+                    "top": 762.360002,
+                    "bottom": 762.42
+                },
+                "associated_text": "used in this print run: Profile CMYK 100"
+            },
+            {
+                "checkbox": {
+                    "x0": 251.94,
+                    "x1": 251.999998,
+                    "top": 762.36,
+                    "bottom": 779.76
+                },
+                "associated_text": ""
+            },
+            {
+                "checkbox": {
+                    "x0": 24.0,
+                    "x1": 252.0,
+                    "top": 779.700002,
+                    "bottom": 779.76
+                },
+                "associated_text": "Profile CMYK 100 via Formula Special"
+            },
+            {
+                "checkbox": {
+                    "x0": 24.0,
+                    "x1": 24.059998,
+                    "top": 762.36,
+                    "bottom": 779.76
+                },
+                "associated_text": "ICC Profiles HP ICC"
+            },
+            {
+                "checkbox": {
+                    "x0": 465.3,
+                    "x1": 473.46000000000004,
+                    "top": 757.2,
+                    "bottom": 765.36
+                },
+                "associated_text": "Post Coat"
+            },
+            {
+                "checkbox": {
+                    "x0": 465.23999999999995,
+                    "x1": 473.46,
+                    "top": 757.14,
+                    "bottom": 765.36
+                },
+                "associated_text": "Post Coat"
+            },
+            {
+                "checkbox": {
+                    "x0": 580.74,
+                    "x1": 580.799937,
+                    "top": 423.48,
+                    "bottom": 439.38
+                },
+                "associated_text": ""
+            },
+            {
+                "checkbox": {
+                    "x0": 412.68,
+                    "x1": 412.739998,
+                    "top": 423.48,
+                    "bottom": 439.38
+                },
+                "associated_text": "Delivered to: Print Show"
+            },
+            {
+                "checkbox": {
+                    "x0": 30.12,
+                    "x1": 38.28,
+                    "top": 796.74,
+                    "bottom": 804.96
+                },
+                "associated_text": "Tension"
+            },
+            {
+                "checkbox": {
+                    "x0": 30.060000000000002,
+                    "x1": 38.28,
+                    "top": 796.6800000000001,
+                    "bottom": 804.96
+                },
+                "associated_text": "Tension"
+            },
+            {
+                "checkbox": {
+                    "x0": 25.5,
+                    "x1": 582.3,
+                    "top": 336.30000200000006,
+                    "bottom": 336.36
+                },
+                "associated_text": "GLOSS Inkjet"
+            },
+            {
+                "checkbox": {
+                    "x0": 582.24,
+                    "x1": 582.299937,
+                    "top": 336.29999999999995,
+                    "bottom": 353.64
+                },
+                "associated_text": ""
+            },
+            {
+                "checkbox": {
+                    "x0": 25.5,
+                    "x1": 582.3,
+                    "top": 353.58000200000004,
+                    "bottom": 353.64
+                },
+                "associated_text": "GLOSS Inkjet Crisp, consistent"
+            },
+            {
+                "checkbox": {
+                    "x0": 25.5,
+                    "x1": 25.559998,
+                    "top": 336.29999999999995,
+                    "bottom": 353.64
+                },
+                "associated_text": "Pixelle"
+            },
+            {
+                "checkbox": {
+                    "x0": 30.12,
+                    "x1": 38.28,
+                    "top": 826.02,
+                    "bottom": 834.24
+                },
+                "associated_text": "Moisturizer"
+            },
+            {
+                "checkbox": {
+                    "x0": 30.060000000000002,
+                    "x1": 38.28,
+                    "top": 825.96,
+                    "bottom": 834.24
+                },
+                "associated_text": "Moisturizer"
+            },
+            {
+                "checkbox": {
+                    "x0": 264.84,
+                    "x1": 375.96,
+                    "top": 667.500002,
+                    "bottom": 667.56
+                },
+                "associated_text": "Media Weight Class: Heavy"
+            },
+            {
+                "checkbox": {
+                    "x0": 375.9,
+                    "x1": 375.959998,
+                    "top": 667.5,
+                    "bottom": 683.46
+                },
+                "associated_text": "Class:"
+            },
+            {
+                "checkbox": {
+                    "x0": 264.84,
+                    "x1": 375.96,
+                    "top": 683.400002,
+                    "bottom": 683.46
+                },
+                "associated_text": "Heavy Dryer Setting Range"
+            },
+            {
+                "checkbox": {
+                    "x0": 264.84,
+                    "x1": 264.899998,
+                    "top": 667.5,
+                    "bottom": 683.46
+                },
+                "associated_text": "Media"
+            },
+            {
+                "checkbox": {
+                    "x0": 577.74,
+                    "x1": 577.799937,
+                    "top": 465.9599999999999,
+                    "bottom": 481.91999999999996
+                },
+                "associated_text": ""
+            },
+            {
+                "checkbox": {
+                    "x0": 382.68,
+                    "x1": 382.739998,
+                    "top": 465.9599999999999,
+                    "bottom": 481.91999999999996
+                },
+                "associated_text": "Short WOW 2"
+            },
+            {
+                "checkbox": {
+                    "x0": 315.66,
+                    "x1": 582.3,
+                    "top": 824.939972,
+                    "bottom": 825.0
+                },
+                "associated_text": ""
+            },
+            {
+                "checkbox": {
+                    "x0": 582.24,
+                    "x1": 582.299937,
+                    "top": 824.94,
+                    "bottom": 840.84
+                },
+                "associated_text": ""
+            },
+            {
+                "checkbox": {
+                    "x0": 315.66,
+                    "x1": 582.3,
+                    "top": 840.780002,
+                    "bottom": 840.84
+                },
+                "associated_text": "this media !"
+            },
+            {
+                "checkbox": {
+                    "x0": 303.24,
+                    "x1": 311.40000000000003,
+                    "top": 757.92,
+                    "bottom": 766.14
+                },
+                "associated_text": "Optimizer"
+            },
+            {
+                "checkbox": {
+                    "x0": 303.17999999999995,
+                    "x1": 311.4,
+                    "top": 757.86,
+                    "bottom": 766.14
+                },
+                "associated_text": "Optimizer"
+            },
+            {
+                "checkbox": {
+                    "x0": 203.16,
+                    "x1": 211.38,
+                    "top": 717.42,
+                    "bottom": 725.5799999999999
+                },
+                "associated_text": "Brilliant Inks"
+            },
+            {
+                "checkbox": {
+                    "x0": 203.1,
+                    "x1": 211.38,
+                    "top": 717.36,
+                    "bottom": 725.58
+                },
+                "associated_text": "Brilliant Inks"
+            },
+            {
+                "checkbox": {
+                    "x0": 582.24,
+                    "x1": 582.299937,
+                    "top": 794.4,
+                    "bottom": 810.3
+                },
+                "associated_text": ""
+            },
+            {
+                "checkbox": {
+                    "x0": 340.14,
+                    "x1": 340.199998,
+                    "top": 794.4,
+                    "bottom": 810.3
+                },
+                "associated_text": "Comments? Opt is OFF,"
+            },
+            {
+                "checkbox": {
+                    "x0": 88.56,
+                    "x1": 580.8,
+                    "top": 363.42000200000007,
+                    "bottom": 363.48
+                },
+                "associated_text": "consistent images with"
+            },
+            {
+                "checkbox": {
+                    "x0": 580.74,
+                    "x1": 580.799937,
+                    "top": 363.41999999999996,
+                    "bottom": 392.28
+                },
+                "associated_text": "gamut\""
+            },
+            {
+                "checkbox": {
+                    "x0": 88.56,
+                    "x1": 580.8,
+                    "top": 392.220063,
+                    "bottom": 392.28
+                },
+                "associated_text": "Africa; Asia Pacific Japan;"
+            },
+            {
+                "checkbox": {
+                    "x0": 88.56,
+                    "x1": 88.619998,
+                    "top": 363.41999999999996,
+                    "bottom": 392.28
+                },
+                "associated_text": "From Pixelle Public"
+            },
+            {
+                "checkbox": {
+                    "x0": 580.74,
+                    "x1": 580.799937,
+                    "top": 399.48,
+                    "bottom": 415.38
+                },
+                "associated_text": ""
+            },
+            {
+                "checkbox": {
+                    "x0": 123.06,
+                    "x1": 123.119998,
+                    "top": 399.48,
+                    "bottom": 415.38
+                },
+                "associated_text": "Regions: North America;"
+            },
+            {
+                "checkbox": {
+                    "x0": 173.58,
+                    "x1": 334.68,
+                    "top": 423.480002,
+                    "bottom": 423.53999999999996
+                },
+                "associated_text": "PEFC, SFI"
+            },
+            {
+                "checkbox": {
+                    "x0": 334.62,
+                    "x1": 334.679998,
+                    "top": 423.48,
+                    "bottom": 439.38
+                },
+                "associated_text": "Delivered"
+            },
+            {
+                "checkbox": {
+                    "x0": 173.58,
+                    "x1": 334.68,
+                    "top": 439.32000200000004,
+                    "bottom": 439.38
+                },
+                "associated_text": "PEFC, SFI of Print Application:"
+            },
+            {
+                "checkbox": {
+                    "x0": 173.58,
+                    "x1": 173.63999800000002,
+                    "top": 423.48,
+                    "bottom": 439.38
+                },
+                "associated_text": "Certfications: FSC, PEFC,"
+            },
+            {
+                "checkbox": {
+                    "x0": 27.0,
+                    "x1": 153.06,
+                    "top": 524.1,
+                    "bottom": 610.56
+                },
+                "associated_text": ""
+            },
+            {
+                "checkbox": {
+                    "x0": 171.06,
+                    "x1": 297.12,
+                    "top": 524.1,
+                    "bottom": 610.56
+                },
+                "associated_text": ""
+            },
+            {
+                "checkbox": {
+                    "x0": 315.12,
+                    "x1": 438.18,
+                    "top": 524.1,
+                    "bottom": 610.56
+                },
+                "associated_text": ""
+            },
+            {
+                "checkbox": {
+                    "x0": 580.26,
+                    "x1": 580.3199979999999,
+                    "top": 713.82,
+                    "bottom": 729.72
+                },
+                "associated_text": ""
+            },
+            {
+                "checkbox": {
+                    "x0": 396.18,
+                    "x1": 396.239998,
+                    "top": 713.82,
+                    "bottom": 729.72
+                },
+                "associated_text": "Range Print"
+            },
+            {
+                "checkbox": {
+                    "x0": 24.0,
+                    "x1": 579.24,
+                    "top": 512.1,
+                    "bottom": 514.98
+                },
+                "associated_text": ""
+            },
+            {
+                "checkbox": {
+                    "x0": 264.12,
+                    "x1": 375.24,
+                    "top": 712.800002,
+                    "bottom": 712.86
+                },
+                "associated_text": "Dryer Setting Range 260-280 Deg F"
+            },
+            {
+                "checkbox": {
+                    "x0": 375.18,
+                    "x1": 375.240028,
+                    "top": 712.8,
+                    "bottom": 728.76
+                },
+                "associated_text": "Range F"
+            },
+            {
+                "checkbox": {
+                    "x0": 264.12,
+                    "x1": 375.24,
+                    "top": 728.700002,
+                    "bottom": 728.76
+                },
+                "associated_text": "260-280 Deg F"
+            },
+            {
+                "checkbox": {
+                    "x0": 264.12,
+                    "x1": 264.179998,
+                    "top": 712.8,
+                    "bottom": 728.76
+                },
+                "associated_text": "Inks Dryer Setting 260-280"
+            }
+        ]
+    }
+]
