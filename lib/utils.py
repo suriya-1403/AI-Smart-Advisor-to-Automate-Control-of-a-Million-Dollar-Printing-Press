@@ -4,7 +4,7 @@ from langchain_ollama import OllamaLLM, OllamaEmbeddings
 from langchain_core.output_parsers import StrOutputParser
 from langchain.prompts import PromptTemplate
 from langchain_community.vectorstores import DocArrayInMemorySearch
-from config import DATASET_PDF_PATH, DATASET_FOLDER_PATH, MODEL_NAME, SPLIT_PAGES_PATH, VECTOR_STORE_PATH
+from config import DATASET_FOLDER_PATH, MODEL_NAME, SPLIT_PAGES_PATH, VECTOR_STORE_PATH
 from constants import PROMPT_TEMPLATE
 from log import get_logger
 from langchain_chroma import Chroma
@@ -35,7 +35,8 @@ def load_and_split_pdf(file_path=None):
     """
 
     # Use the provided file_path or default to DATASET_PDF_PATH
-    path_to_pdf = file_path or DATASET_PDF_PATH
+    # path_to_pdf = file_path or DATASET_PDF_PATH
+    path_to_pdf = file_path
     logger.info(f"Using PDF file path: {path_to_pdf}")
 
     # Ensure the file exists
