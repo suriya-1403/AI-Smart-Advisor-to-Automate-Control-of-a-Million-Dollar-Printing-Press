@@ -161,7 +161,7 @@ cython_debug/
 #.idea/
 /Dataset
 llama32pipeline.ipynb
-main.py
+
 ProjectSpecificationTemplate-PvZ1.pdf
 RAGfromScratch.ipynb
 Bargraph.png
