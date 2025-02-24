@@ -1,5 +1,6 @@
 import os
 import json
+import streamlit as st
 from langchain.vectorstores import FAISS
 from langchain_community.llms import Ollama
 from langchain_community.embeddings import OllamaEmbeddings
@@ -55,6 +56,7 @@ class Chatbot:
     def load_and_store(self):
         """Load PDFs or JSON files, create embeddings, and store in FAISS & In-Memory."""
         all_pages = []
+        processed_files = []  # Store processed filenames
         print(f"Checking folder: {self.pdf_folder}")
 
         for file_name in os.listdir(self.pdf_folder):
@@ -66,6 +68,7 @@ class Chatbot:
                 loader = PyPDFLoader(file_path)
                 pages = loader.load_and_split()
                 all_pages.extend(pages)
+                processed_files.append(file_name)  # Add file to processed list
 
             elif self.file_type == "JSON" and file_name.endswith(".json"):
                 print(f"Processing JSON: {file_name}")
@@ -78,9 +81,10 @@ class Chatbot:
                     # Convert flattened dictionary to text
                     text = "\n".join([f"{key}: {value}" for key, value in flat_data.items()])
                     all_pages.append(Document(page_content=text))
+                    processed_files.append(file_name)  # Add file to processed list
 
                     print(f"Processed JSON into document:\n{text}\n")
-
+        st.session_state.vectorstore_files = processed_files
         print(f"Total loaded documents: {len(all_pages)}")
         if all_pages:
             self.vectorstore_faiss = FAISS.from_documents(all_pages, self.embeddings)
@@ -91,14 +95,27 @@ class Chatbot:
         return f"⚠️ No {self.file_type} files found in the folder."
 
     def load_existing_store(self):
-        """Load FAISS from disk if available, otherwise initialize a new one."""
+        """Load FAISS from disk if available and extract stored filenames."""
         index_path = os.path.join(self.db_path, "index.faiss")
 
         if os.path.exists(index_path):
             self.vectorstore_faiss = FAISS.load_local(
                 self.db_path, self.embeddings, allow_dangerous_deserialization=True
             )
-            return "✅ Loaded FAISS vector store from disk."
+
+            # Extract filenames from FAISS document store
+            stored_filenames = []
+            if hasattr(self.vectorstore_faiss, "docstore"):
+                stored_filenames = [
+                    doc.metadata.get("source", "Unknown") for doc in self.vectorstore_faiss.docstore._dict.values()
+                ]
+
+            # Store filenames in session state
+            import streamlit as st
+            st.session_state.vectorstore_files = stored_filenames
+
+            return f"✅ Loaded FAISS vector store from disk with {len(stored_filenames)} stored files."
+
         return "⚠️ No FAISS vector store found. Click 'Update Vector Space' to create it."
 
     def retrieve_documents(self, query):
