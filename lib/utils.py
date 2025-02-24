@@ -1,4 +1,5 @@
 import os
+import json
 from langchain.vectorstores import FAISS
 from langchain_community.llms import Ollama
 from langchain_community.embeddings import OllamaEmbeddings
@@ -6,13 +7,16 @@ from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.vectorstores import DocArrayInMemorySearch
 from langchain.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+from langchain_core.documents import Document
 from config import VECTOR_STORE_PATH
 
+
 class Chatbot:
-    def __init__(self, pdf_folder, model_name="llama3.2", db_path=VECTOR_STORE_PATH):
-        """Initialize RAG system with FAISS & In-Memory options and dynamic model selection."""
+    def __init__(self, pdf_folder, file_type="PDF", model_name="llama3.2", db_path=VECTOR_STORE_PATH):
+        """Initialize RAG system with FAISS & In-Memory options and support for JSON/PDF files."""
         self.model_name = model_name
         self.pdf_folder = pdf_folder
+        self.file_type = file_type  # Added support for file selection
         self.db_path = db_path  # FAISS storage path
         self.model = Ollama(model=self.model_name)  # Load selected model
         self.embeddings = OllamaEmbeddings(model=self.model_name)
@@ -31,22 +35,60 @@ class Chatbot:
         self.model = Ollama(model=self.model_name)  # Reload with new model
         self.embeddings = OllamaEmbeddings(model=self.model_name)
 
+    def flatten_dict(self, d, parent_key=''):
+        """
+        Recursively flattens a nested dictionary into a single-level dictionary.
+        - Extracts all string, integer, and float values for text similarity.
+        """
+        items = []
+        for k, v in d.items():
+            new_key = f"{parent_key}.{k}" if parent_key else k
+            if isinstance(v, dict):  # Recursive flattening for nested dicts
+                items.extend(self.flatten_dict(v, new_key).items())  # Use self.flatten_dict()
+            elif isinstance(v, list):
+                # Convert lists into space-separated strings
+                items.append((new_key, " ".join(map(str, v))))
+            elif isinstance(v, (str, int, float)):  # Keep text, numbers
+                items.append((new_key, str(v)))
+        return dict(items)
+
     def load_and_store(self):
-        """Load PDFs, create embeddings, and store in FAISS & In-Memory."""
+        """Load PDFs or JSON files, create embeddings, and store in FAISS & In-Memory."""
         all_pages = []
+        print(f"Checking folder: {self.pdf_folder}")
+
         for file_name in os.listdir(self.pdf_folder):
-            if file_name.endswith(".pdf"):
-                file_path = os.path.join(self.pdf_folder, file_name)
+            file_path = os.path.join(self.pdf_folder, file_name)
+            print(f"Found file: {file_name}")
+
+            if self.file_type == "PDF" and file_name.endswith(".pdf"):
+                print(f"Processing PDF: {file_name}")
                 loader = PyPDFLoader(file_path)
                 pages = loader.load_and_split()
                 all_pages.extend(pages)
 
+            elif self.file_type == "JSON" and file_name.endswith(".json"):
+                print(f"Processing JSON: {file_name}")
+                with open(file_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+
+                    # Call flatten_dict correctly using self.
+                    flat_data = self.flatten_dict(data)
+
+                    # Convert flattened dictionary to text
+                    text = "\n".join([f"{key}: {value}" for key, value in flat_data.items()])
+                    all_pages.append(Document(page_content=text))
+
+                    print(f"Processed JSON into document:\n{text}\n")
+
+        print(f"Total loaded documents: {len(all_pages)}")
         if all_pages:
             self.vectorstore_faiss = FAISS.from_documents(all_pages, self.embeddings)
             self.vectorstore_faiss.save_local(self.db_path)  # Save FAISS index
             self.vectorstore_memory = DocArrayInMemorySearch.from_documents(all_pages, embedding=self.embeddings)
-            return f"✅ Loaded {len(all_pages)} pages from {len(os.listdir(self.pdf_folder))} PDFs."
-        return "⚠️ No PDFs found in the folder."
+            return f"✅ Loaded {len(all_pages)} records from {len(os.listdir(self.pdf_folder))} {self.file_type} files."
+
+        return f"⚠️ No {self.file_type} files found in the folder."
 
     def load_existing_store(self):
         """Load FAISS from disk if available, otherwise initialize a new one."""
