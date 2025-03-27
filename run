@@ -1,1 +1,1 @@
-streamlit run main.py
+streamlit run hybridRAG_all_se.py

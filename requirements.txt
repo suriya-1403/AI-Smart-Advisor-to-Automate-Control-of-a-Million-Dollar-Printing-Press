@@ -9,7 +9,6 @@ datasets
 peft
 trl
 pymupdf
-
 pypdf
 pydantic~=2.9.2
 PyPDF2
@@ -20,7 +19,10 @@ langchain-core~=0.3.11
 langchain~=0.3.3
 pdfplumber~=0.11.4
 python-dotenv~=1.0.1
+langchain_ollama
 wheel~=0.44.0
 psutil~=6.0.0
 docarray
 streamlit
+sentence_transformers
+openpyxl

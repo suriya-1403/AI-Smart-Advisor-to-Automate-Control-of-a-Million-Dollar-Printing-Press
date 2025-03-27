@@ -1,5 +1,6 @@
 import os
 import json
+import re
 import streamlit as st
 import pandas as pd
 import chromadb
@@ -75,7 +76,10 @@ if st.button("🚀 Store JSON in Vector Store"):
         json_list = []
 
         for file in uploaded_files:
-            json_data = json.load(file)
+            file_content = file.read()
+            json_data = json.loads(file_content)
+            # Add filename to the data
+            json_data["filename"] = file.name
             json_list.append(json_data)
 
         df = pd.DataFrame(json_list)
@@ -97,7 +101,8 @@ if st.button("🚀 Store JSON in Vector Store"):
                     "Media Weight GSM": row["Media Weight GSM"],
                     "Media Coating": row["Media Coating"],
                     "Media Finish": row["Media Finish"],
-                    "Press Model": row["Press Model"]
+                    "Press Model": row["Press Model"],
+                    "filename": row["filename"]  # Store filename in metadata
                 }],
                 ids=[str(row["event_id"])]
             )
@@ -106,7 +111,131 @@ if st.button("🚀 Store JSON in Vector Store"):
 
 # Query Input
 st.subheader("🔍 Ask a question:")
-user_query = st.text_input("Enter your search query:")
+user_query = st.text_input("Enter your search query or ask a question:")
+
+
+# Function to determine if the query is a search or a question
+def process_query(user_query):
+    """Process user query to determine if it's a search or a specific question"""
+
+    # First check if it's likely a search query (looking for documents with specific attributes)
+    search_patterns = [
+        r'find\s+.*(document|file|print job|event)',
+        r'search\s+for',
+        r'looking\s+for',
+        r'(show|get|display|retrieve)\s+.*(document|file|print job|event)',
+        r'with\s+(heavy|medium|light|coated|uncoated|silk|matte|gloss|\d+\s*gsm)',
+        r'(filter|where|that has)',
+    ]
+
+    # Check if any search pattern matches
+    for pattern in search_patterns:
+        if re.search(pattern, user_query.lower(), re.IGNORECASE):
+            return "search", user_query
+
+    # If it has question words or asking about specifics, treat as a question
+    question_indicators = [
+        r'^(what|how|why|when|where|who|can you|could you|tell me)',
+        r'\?$',
+        r'(explain|describe|elaborate|detail|info about)',
+        r'(configuration|setting|parameter|specification|property)',
+    ]
+
+    for pattern in question_indicators:
+        if re.search(pattern, user_query.lower(), re.IGNORECASE):
+            return "question", user_query
+
+    # If it contains a filename, likely asking about a specific file
+    if ".json" in user_query or ".pdf" in user_query:
+        return "question", user_query
+
+    # Default to search if we can't determine
+    return "search", user_query
+
+
+# Function to handle specific questions about documents
+def answer_document_question(user_query):
+    """Handles direct questions about specific documents or configurations"""
+
+    # Try to extract event ID or filename
+    file_match = re.search(r'["\']?([^"\']+\.json)["\']?', user_query)
+    event_id_match = re.search(r'event\s+id\s*[:\s]\s*([a-zA-Z0-9-_]+)', user_query, re.IGNORECASE)
+
+    # Extract relevant document
+    document = None
+
+    if file_match:
+        filename = file_match.group(1)
+        st.info(f"Looking for information about file: {filename}")
+
+        # First try to find by filename in the metadata
+        try:
+            results = collection.query(
+                query_texts=[""],  # Empty query for metadata-only search
+                where={"filename": filename},
+                n_results=1
+            )
+
+            if results["metadatas"] and results["metadatas"][0]:
+                document = results["metadatas"][0][0]
+
+            # If not found by filename, use the query itself
+            if not document:
+                # Get most relevant document based on the query
+                results = collection.query(
+                    query_texts=[user_query],
+                    n_results=1
+                )
+                if results["metadatas"] and results["metadatas"][0]:
+                    document = results["metadatas"][0][0]
+        except Exception as e:
+            st.error(f"Error searching for document: {str(e)}")
+
+    elif event_id_match:
+        event_id = event_id_match.group(1)
+        st.info(f"Looking for information about event ID: {event_id}")
+
+        try:
+            # Try exact match by ID
+            results = collection.query(
+                query_texts=[""],  # Empty query for metadata-only search
+                where={"event_id": event_id},
+                n_results=1
+            )
+            if results["metadatas"] and results["metadatas"][0]:
+                document = results["metadatas"][0][0]
+        except Exception as e:
+            st.error(f"Error during event ID search: {str(e)}")
+    else:
+        # No specific identifier found, use semantic search to find best match
+        try:
+            results = collection.query(
+                query_texts=[user_query],
+                n_results=1
+            )
+            if results["metadatas"] and results["metadatas"][0]:
+                document = results["metadatas"][0][0]
+        except Exception as e:
+            st.error(f"Error during search: {str(e)}")
+
+    if not document:
+        return "I couldn't find specific information about that document or configuration. Could you try rephrasing your question?"
+
+    # Use LLM to generate an answer based on the document data
+    prompt = f"""
+    Given this printing configuration data:
+    {json.dumps(document, indent=2)}
+
+    Answer this question from the user: "{user_query}"
+
+    Provide a detailed and helpful response focusing on the printing configuration and settings.
+    Include specific details about ink coverage, media weight, coating, finish, press model, etc.
+    Format your answer in a clear, easy-to-read way.
+    If certain information isn't available in the data, mention that.
+    """
+
+    response = llm.invoke(prompt)
+    return response
 
 
 # Step 3: Query Expansion using Llama 3.2
@@ -414,8 +543,6 @@ def rank_and_explain_with_llm(user_query, top_results):
 
     return top_ranked
 
-    return ranked_results
-
 
 # Debug Tools
 if st.checkbox("Show Debug Options"):
@@ -429,107 +556,127 @@ if st.checkbox("Show Debug Options"):
             st.error(f"ChromaDB error: {str(e)}")
 
 # Step 6: Search Button & Output
-if st.button("🔎 Search"):
+if st.button("🔎 Search/Answer"):
     if not user_query:
-        st.warning("⚠️ Please enter a search query.")
+        st.warning("⚠️ Please enter a search query or question.")
     else:
         # Create a placeholder for search results
         results_placeholder = st.empty()
 
-        with st.spinner("🔍 Searching documents..."):
-            try:
-                # First try our normal search
-                retrieved_docs = retrieve_documents(user_query)
+        # Determine if this is a search or a question
+        query_type, processed_query = process_query(user_query)
 
-                if not retrieved_docs:
-                    # If no results, try a more flexible search approach
-                    st.info("Trying alternative search method...")
-                    # Get the main keywords from the query
-                    keywords = [word for word in user_query.lower().split()
-                                if len(word) > 3 and word not in ['with', 'and', 'the', 'for', 'find', 'documents']]
+        if query_type == "question":
+            # Handle as a specific question about a document
+            with st.spinner("🧠 Answering your question..."):
+                answer = answer_document_question(processed_query)
 
-                    if keywords:
-                        keyword_query = " ".join(keywords)
-                        st.write(f"Searching with keywords: {keyword_query}")
-                        query_results = collection.query(
-                            query_texts=[keyword_query],
-                            n_results=5
-                        )
-                        retrieved_docs = query_results["metadatas"][0] if query_results["metadatas"] else []
-            except Exception as e:
-                st.error(f"Search error: {str(e)}")
-                retrieved_docs = []
-
-        if not retrieved_docs:
-            st.error("❌ No matching documents found. Try a different query.")
+                with results_placeholder.container():
+                    st.success("✅ Answer generated")
+                    st.markdown("### 📝 Answer")
+                    st.markdown(answer)
+                    st.info(
+                        "If you want to search for documents instead, try using keywords like 'find documents with' or 'search for'.")
         else:
-            with st.spinner("🧠 Analyzing and ranking results..."):
-                ranked_results = rank_and_explain_with_llm(user_query, retrieved_docs)
+            # Handle as a search query
+            with st.spinner("🔍 Searching documents..."):
+                try:
+                    # First try our normal search
+                    retrieved_docs = retrieve_documents(user_query)
 
-            # Create a cleaner results display
-            with results_placeholder.container():
-                st.success(f"🎯 Found {len(ranked_results)} matching documents")
+                    if not retrieved_docs:
+                        # If no results, try a more flexible search approach
+                        st.info("Trying alternative search method...")
+                        # Get the main keywords from the query
+                        keywords = [word for word in user_query.lower().split()
+                                    if len(word) > 3 and word not in ['with', 'and', 'the', 'for', 'find', 'documents']]
 
-                # Convert ranked results to DataFrame
-                ranked_df = pd.DataFrame(ranked_results)
+                        if keywords:
+                            keyword_query = " ".join(keywords)
+                            st.write(f"Searching with keywords: {keyword_query}")
+                            query_results = collection.query(
+                                query_texts=[keyword_query],
+                                n_results=5
+                            )
+                            retrieved_docs = query_results["metadatas"][0] if query_results["metadatas"] else []
+                except Exception as e:
+                    st.error(f"Search error: {str(e)}")
+                    retrieved_docs = []
 
-                # Select columns to display in main table
-                display_columns = ["event_id", "Ink Coverage", "Media Coating", "Media Finish",
-                                   "Media Weight GSM", "Press Model", "location"]
-                # Make sure we only include columns that exist
-                available_columns = [col for col in display_columns if col in ranked_df.columns]
+            if not retrieved_docs:
+                st.error("❌ No matching documents found. Try a different query.")
+                st.info(
+                    "If you were asking a question instead of searching, try rephrasing with question words like 'what' or 'how'.")
+            else:
+                with st.spinner("🧠 Analyzing and ranking results..."):
+                    ranked_results = rank_and_explain_with_llm(user_query, retrieved_docs)
 
-                if available_columns:
-                    display_df = ranked_df[available_columns]
+                # Create a cleaner results display
+                with results_placeholder.container():
+                    st.success(f"🎯 Found {len(ranked_results)} matching documents")
 
-                    # Display Ranked Table
-                    st.subheader("🔹 Ranked Documents")
-                    st.dataframe(display_df)
+                    # Convert ranked results to DataFrame
+                    ranked_df = pd.DataFrame(ranked_results)
 
-                    # Display reasoning for each result
-                    st.subheader("🔹 Selection Reasoning")
-                    for i, result in enumerate(ranked_results):
-                        reason = result.get("Reason for Selection", "No explanation provided.")
-                        # Format the explanation to look better
-                        if reason == "Matched based on general relevance.":
-                            reason_color = "orange"
-                        else:
-                            reason_color = "green"
+                    # Select columns to display in main table
+                    display_columns = ["event_id", "Ink Coverage", "Media Coating", "Media Finish",
+                                       "Media Weight GSM", "Press Model", "location"]
+                    # Make sure we only include columns that exist
+                    available_columns = [col for col in display_columns if col in ranked_df.columns]
 
-                        st.markdown(f"""
-                        <style>
-                            .result-box {{
-                                margin-bottom: 10px;
-                                padding: 10px;
-                                border-left: 4px solid {reason_color};
-                            }}
-                            /* Will be slightly visible in light mode */
-                            .result-box {{
-                                background-color: rgba(248, 249, 250, 0.1);
-                            }}
-                            /* More visible text in dark mode */
-                            .result-box strong, .result-box span {{
-                                color: rgba(255, 255, 255, 0.9);
-                            }}
-                        </style>
+                    if available_columns:
+                        display_df = ranked_df[available_columns]
 
-                        <div class="result-box">
-                            <strong>Document {i + 1} (Event ID: {result.get('event_id', 'N/A')})</strong><br>
-                            <span>{reason}</span>
-                        </div>
-                        """, unsafe_allow_html=True)
+                        # Display Ranked Table
+                        st.subheader("🔹 Ranked Documents")
+                        st.dataframe(display_df)
 
-                    # Additional Details: Press Model for Top Documents
-                    if "Press Model" in ranked_df.columns:
-                        press_details = [{"Event ID": doc.get("event_id", "N/A"),
-                                          "Press Model": doc.get("Press Model", "N/A")}
-                                         for doc in ranked_results]
-                        press_df = pd.DataFrame(press_details)
+                        # Display reasoning for each result
+                        st.subheader("🔹 Selection Reasoning")
+                        for i, result in enumerate(ranked_results):
+                            reason = result.get("Reason for Selection", "No explanation provided.")
+                            # Format the explanation to look better
+                            if reason == "Matched based on general relevance.":
+                                reason_color = "orange"
+                            else:
+                                reason_color = "green"
 
-                        st.subheader("🔹 Press Model Details")
-                        st.dataframe(press_df)
-                else:
-                    st.warning("Retrieved documents are missing expected columns")
-                    st.json(ranked_results)
+                            st.markdown(f"""
+                            <style>
+                                .result-box {{
+                                    margin-bottom: 10px;
+                                    padding: 10px;
+                                    border-left: 4px solid {reason_color};
+                                }}
+                                /* Will be slightly visible in light mode */
+                                .result-box {{
+                                    background-color: rgba(248, 249, 250, 0.1);
+                                }}
+                                /* More visible text in dark mode */
+                                .result-box strong, .result-box span {{
+                                    color: rgba(255, 255, 255, 0.9);
+                                }}
+                            </style>
 
-            st.sidebar.success("✅ **Ranking & Filtering Complete!**")
+                            <div class="result-box">
+                                <strong>Document {i + 1} (Event ID: {result.get('event_id', 'N/A')})</strong><br>
+                                <span>{reason}</span>
+                            </div>
+                            """, unsafe_allow_html=True)
+
+                        # Additional Details: Press Model for Top Documents
+                        if "Press Model" in ranked_df.columns:
+                            press_details = [{"Event ID": doc.get("event_id", "N/A"),
+                                              "Press Model": doc.get("Press Model", "N/A")}
+                                             for doc in ranked_results]
+                            press_df = pd.DataFrame(press_details)
+
+                            st.subheader("🔹 Press Model Details")
+                            st.dataframe(press_df)
+                    else:
+                        st.warning("Retrieved documents are missing expected columns")
+                        st.json(ranked_results)
+
+                st.sidebar.success("✅ **Ranking & Filtering Complete!**")
+                st.info(
+                    "If you were asking a specific question about a document instead of searching, try rephrasing with question words like 'what' or 'how'.")
