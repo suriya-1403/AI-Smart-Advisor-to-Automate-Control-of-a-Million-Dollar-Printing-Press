@@ -4,20 +4,27 @@ Main application module for the RAG Chatbot.
 This module contains the main Streamlit application and UI components.
 """
 
-import os
 import json
-import streamlit as st
-import pandas as pd
-from sentence_transformers import SentenceTransformer
-from langchain_ollama import OllamaLLM
+import os
 
-from lib import VectorDBManager, QueryProcessor, DocumentScorer, RAGEngine
+import pandas as pd
+import streamlit as st
+from langchain_ollama import OllamaLLM
+from sentence_transformers import SentenceTransformer
+
 from config import (
-    DISABLE_CUDA, CHROMA_PATH, COLLECTION_NAME, EMBEDDING_MODEL,
-    DEFAULT_LLM, AVAILABLE_MODELS, APP_TITLE, APP_DESCRIPTION
+    APP_DESCRIPTION,
+    APP_TITLE,
+    AVAILABLE_MODELS,
+    CHROMA_PATH,
+    COLLECTION_NAME,
+    DEFAULT_LLM,
+    DISABLE_CUDA,
+    EMBEDDING_MODEL,
 )
-from log import logger
 from constants import STOP_WORDS
+from lib import DocumentScorer, QueryProcessor, RAGEngine, VectorDBManager
+from log import logger
 
 # Disable PyTorch CUDA if configured
 if DISABLE_CUDA:
@@ -53,7 +60,7 @@ class RAGChatbotApp:
         self.vector_db = VectorDBManager(
             chroma_path=CHROMA_PATH,
             collection_name=COLLECTION_NAME,
-            embedding_model_name=EMBEDDING_MODEL
+            embedding_model_name=EMBEDDING_MODEL,
         )
 
         # Embedding model
@@ -73,10 +80,7 @@ class RAGChatbotApp:
 
         # RAG engine
         self.rag_engine = RAGEngine(
-            self.vector_db,
-            self.query_processor,
-            self.document_scorer,
-            self.llm
+            self.vector_db, self.query_processor, self.document_scorer, self.llm
         )
 
     def build_ui(self):
@@ -115,7 +119,9 @@ class RAGChatbotApp:
         self.selected_model = st.sidebar.selectbox(
             "Select Model",
             AVAILABLE_MODELS,
-            index=AVAILABLE_MODELS.index(self.model_name) if self.model_name in AVAILABLE_MODELS else 0
+            index=AVAILABLE_MODELS.index(self.model_name)
+            if self.model_name in AVAILABLE_MODELS
+            else 0,
         )
         # Update model if changed
         if self.selected_model != self.model_name:
@@ -125,17 +131,19 @@ class RAGChatbotApp:
             self.llm = OllamaLLM(model=self.model_name)
 
         # File Type Selection
-        self.file_type = st.sidebar.selectbox("Select File Type", ["PDF", "JSON"], index=0)
+        self.file_type = st.sidebar.selectbox(
+            "Select File Type", ["PDF", "JSON"], index=0
+        )
 
         # File Upload
         self.uploaded_files = st.sidebar.file_uploader(
-            "Upload PDF/JSON files",
-            type=["pdf", "json"],
-            accept_multiple_files=True
+            "Upload PDF/JSON files", type=["pdf", "json"], accept_multiple_files=True
         )
 
         if self.uploaded_files:
-            st.sidebar.success(f"✅ Loaded {len(self.uploaded_files)} file(s) into memory.")
+            st.sidebar.success(
+                f"✅ Loaded {len(self.uploaded_files)} file(s) into memory."
+            )
 
     def display_uploaded_files(self):
         """Display information about uploaded files."""
@@ -189,8 +197,10 @@ class RAGChatbotApp:
         with st.spinner("Storing documents in vector database..."):
             try:
                 # Store documents in vector database
-                self.vector_db.store_documents(df.to_dict('records'))
-                st.success("✅ JSON data successfully stored in vector database with embeddings!")
+                self.vector_db.store_documents(df.to_dict("records"))
+                st.success(
+                    "✅ JSON data successfully stored in vector database with embeddings!"
+                )
             except Exception as e:
                 st.error(f"Error storing documents: {str(e)}")
 
@@ -200,8 +210,7 @@ class RAGChatbotApp:
         words = query.lower().split()
 
         # Filter by length and exclude stop words
-        keywords = [word for word in words
-                    if len(word) > 3 and word not in STOP_WORDS]
+        keywords = [word for word in words if len(word) > 3 and word not in STOP_WORDS]
 
         return keywords
 
@@ -215,7 +224,9 @@ class RAGChatbotApp:
         results_placeholder = st.empty()
 
         # Determine if this is a search or a question
-        query_type, processed_query = self.query_processor.classify_query(self.user_query)
+        query_type, processed_query = self.query_processor.classify_query(
+            self.user_query
+        )
 
         if query_type == "question":
             # Handle as a specific question about a document using RAG
@@ -227,7 +238,9 @@ class RAGChatbotApp:
                     st.markdown("### 📝 Answer")
                     st.markdown(answer)
                     st.info(
-                        "If you want to search for documents instead, try using keywords like 'find documents with' or 'search for'.")
+                        "If you want to search for documents instead, "
+                        "try using keywords like 'find documents with' or 'search for'."
+                    )
         else:
             # Handle as a search query
             with st.spinner("🔍 Searching documents with vector embeddings..."):
@@ -245,18 +258,25 @@ class RAGChatbotApp:
                         st.write(f"Searching with keywords: {keyword_query}")
 
                         # Create embedding for the keyword query
-                        keyword_embedding = self.query_processor.generate_embedding(keyword_query)
+                        keyword_embedding = self.query_processor.generate_embedding(
+                            keyword_query
+                        )
 
                         query_results = self.vector_db.query_by_embedding(
-                            keyword_embedding,
-                            n_results=5
+                            keyword_embedding, n_results=5
                         )
-                        retrieved_docs = query_results["metadatas"][0] if query_results["metadatas"] else []
+                        retrieved_docs = (
+                            query_results["metadatas"][0]
+                            if query_results["metadatas"]
+                            else []
+                        )
 
             if not retrieved_docs:
                 st.error("❌ No matching documents found. Try a different query.")
                 st.info(
-                    "If you were asking a question instead of searching, try rephrasing with question words like 'what' or 'how'.")
+                    "If you were asking a question instead of searching, "
+                    "try rephrasing with question words like 'what' or 'how'."
+                )
             else:
                 # Display results
                 with results_placeholder.container():
@@ -266,10 +286,19 @@ class RAGChatbotApp:
                     results_df = pd.DataFrame(retrieved_docs)
 
                     # Select columns to display in main table
-                    display_columns = ["event_id", "Ink Coverage", "Media Coating", "Media Finish",
-                                       "Media Weight GSM", "Press Model", "location"]
+                    display_columns = [
+                        "event_id",
+                        "Ink Coverage",
+                        "Media Coating",
+                        "Media Finish",
+                        "Media Weight GSM",
+                        "Press Model",
+                        "location",
+                    ]
                     # Make sure we only include columns that exist
-                    available_columns = [col for col in display_columns if col in results_df.columns]
+                    available_columns = [
+                        col for col in display_columns if col in results_df.columns
+                    ]
 
                     if available_columns:
                         display_df = results_df[available_columns]
@@ -282,7 +311,9 @@ class RAGChatbotApp:
                         st.subheader("🔹 Document Analysis")
 
                         with st.spinner("Generating document analysis..."):
-                            analysis = self.rag_engine.analyze_documents(self.user_query, retrieved_docs)
+                            analysis = self.rag_engine.analyze_documents(
+                                self.user_query, retrieved_docs
+                            )
                             st.markdown(analysis)
                     else:
                         st.warning("Retrieved documents are missing expected columns")
@@ -290,12 +321,14 @@ class RAGChatbotApp:
 
                 st.sidebar.success("✅ **Vector Search Complete!**")
                 st.info(
-                    "If you were asking a specific question about a document instead of searching, try rephrasing with question words like 'what' or 'how'.")
+                    "If you were asking a specific question about a document instead of searching, "
+                    "try rephrasing with question words like 'what' or 'how'."
+                )
 
 
 def main():
     """Main entry point for the application."""
-    app = RAGChatbotApp()
+    app = RAGChatbotApp()  # noqa: F841
     logger.info("Initializing RAG Chatbot")
 
 
