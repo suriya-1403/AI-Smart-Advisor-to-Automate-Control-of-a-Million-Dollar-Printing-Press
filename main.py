@@ -6,6 +6,7 @@ This module contains the main Streamlit application and UI components.
 
 import json
 import os
+import sys
 
 import pandas as pd
 import streamlit as st
@@ -227,7 +228,7 @@ class RAGChatbotApp:
         query_type, processed_query = self.query_processor.classify_query(
             self.user_query
         )
-
+        logger.debug(f"Query classified as: {query_type} - '{processed_query}'")
         if query_type == "question":
             # Handle as a specific question about a document using RAG
             with st.spinner("🧠 Using RAG to answer your question..."):
@@ -252,11 +253,15 @@ class RAGChatbotApp:
                     st.info("Trying alternative search method...")
                     # Get the main keywords from the query
                     keywords = self.extract_keywords(self.user_query)
-
+                    logger.debug(
+                        "No results with primary search, trying alternative keyword search"
+                    )
                     if keywords:
                         keyword_query = " ".join(keywords)
                         st.write(f"Searching with keywords: {keyword_query}")
-
+                        logger.debug(
+                            f"Searching with alternative keywords: {keyword_query}"
+                        )
                         # Create embedding for the keyword query
                         keyword_embedding = self.query_processor.generate_embedding(
                             keyword_query
@@ -328,8 +333,12 @@ class RAGChatbotApp:
 
 def main():
     """Main entry point for the application."""
+    if "debug" in sys.argv:
+        import logging
+
+        logger.setLevel(logging.DEBUG)
+        logger.debug("Debug logging enabled")
     app = RAGChatbotApp()  # noqa: F841
-    logger.info("Initializing RAG Chatbot")
 
 
 if __name__ == "__main__":

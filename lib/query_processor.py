@@ -2,13 +2,14 @@
 Query processing for the RAG Chatbot.
 """
 
-import re
 import json
-from typing import Dict, List, Tuple, Any
-from sentence_transformers import SentenceTransformer
-from langchain_ollama import OllamaLLM
+import re
+from typing import Any, Dict, List, Tuple
 
-from constants.constants import SEARCH_PATTERNS, QUESTION_PATTERNS
+from langchain_ollama import OllamaLLM
+from sentence_transformers import SentenceTransformer
+
+from constants.constants import QUESTION_PATTERNS, SEARCH_PATTERNS
 from log import logger
 
 
@@ -37,21 +38,26 @@ class QueryProcessor:
             Tuple of (query_type, processed_query) where query_type is
             either "search" or "question"
         """
+        logger.debug(f"Classifying query: '{user_query}'")
         # Check if any search pattern matches
         for pattern in SEARCH_PATTERNS:
             if re.search(pattern, user_query.lower(), re.IGNORECASE):
+                logger.debug(f"Query matched search pattern: {pattern}")
                 return "search", user_query
 
         # Check if any question pattern matches
         for pattern in QUESTION_PATTERNS:
             if re.search(pattern, user_query.lower(), re.IGNORECASE):
+                logger.debug(f"Query matched question pattern: {pattern}")
                 return "question", user_query
 
         # If it contains a filename, likely asking about a specific file
         if ".json" in user_query or ".pdf" in user_query:
+            logger.debug("Query contains filename, treating as question")
             return "question", user_query
 
         # Default to search if we can't determine
+        logger.debug("Query classification defaulted to search")
         return "search", user_query
 
     def expand_query(self, user_query: str) -> Dict[str, Any]:
@@ -64,6 +70,7 @@ class QueryProcessor:
         Returns:
             Dictionary of extracted parameters and values
         """
+        logger.debug(f"Expanding query: '{user_query}'")
         prompt = f"""
         Analyze this user query: "{user_query}"
 
@@ -77,10 +84,10 @@ class QueryProcessor:
 
         Format your response EXACTLY like this example:
         {{
-            "Ink Coverage": "Heavy",
-            "Media Weight GSM": 220,
-            "Media Coating": "Coated",
-            "Media Finish": "Silk"
+            "Ink Coverage": "...",
+            "Media Weight GSM": ..,
+            "Media Coating": "..",
+            "Media Finish": "..."
         }}
 
         Only include parameters that are EXPLICITLY mentioned in the query.
@@ -89,6 +96,7 @@ class QueryProcessor:
         """
 
         response = self.llm.invoke(prompt)
+        logger.debug("Got structured query response from LLM")
 
         try:
             # Clean up the response - remove any markdown and extra text
@@ -101,6 +109,9 @@ class QueryProcessor:
             if json_start != -1 and json_end != -1:
                 json_text = cleaned_response[json_start:json_end]
                 structured_query = json.loads(json_text)
+                logger.debug(
+                    f"Successfully parsed query parameters: {structured_query}"
+                )
             else:
                 # If no curly braces found, try removing markdown blocks
                 if "```json" in cleaned_response and "```" in cleaned_response:
@@ -108,11 +119,20 @@ class QueryProcessor:
                     json_end = cleaned_response.rfind("```")
                     json_text = cleaned_response[json_start:json_end].strip()
                     structured_query = json.loads(json_text)
+                    logger.debug(
+                        f"Successfully parsed query parameters: {structured_query}"
+                    )
                 else:
                     # Last resort: try the whole response
                     structured_query = json.loads(cleaned_response)
+                    logger.debug(
+                        f"Successfully parsed query parameters with errors: {structured_query}"
+                    )
+
         except json.JSONDecodeError:
-            logger.warning("Failed to parse LLM response as JSON, using manual extraction")
+            logger.warning(
+                "Failed to parse LLM response as JSON, using manual extraction"
+            )
             # Create a basic structured query by simple text analysis
             structured_query = {}
 
@@ -137,11 +157,10 @@ class QueryProcessor:
                 structured_query["Media Finish"] = "Gloss"
 
             # Try to extract GSM value
-            gsm_match = re.search(r'(\d+)\s*gsm', user_query.lower())
+            gsm_match = re.search(r"(\d+)\s*gsm", user_query.lower())
             if gsm_match:
                 structured_query["Media Weight GSM"] = int(gsm_match.group(1))
-
-        logger.debug(f"Extracted query parameters: {structured_query}")
+            logger.debug(f"Manually extracted parameters: {structured_query}")
         return structured_query
 
     def generate_embedding(self, text: str) -> List[float]:

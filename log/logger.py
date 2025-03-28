@@ -5,6 +5,7 @@ Logging functionality for the application.
 import logging
 import os
 
+
 def get_logger(name, log_file="app.log", level=logging.INFO):
     """
     Configure and return a logger instance.
@@ -32,7 +33,7 @@ def get_logger(name, log_file="app.log", level=logging.INFO):
 
     # Set log formats
     formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s'
+        "%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s"
     )
     file_handler.setFormatter(formatter)
     console_handler.setFormatter(formatter)
@@ -43,6 +44,7 @@ def get_logger(name, log_file="app.log", level=logging.INFO):
         logger.addHandler(console_handler)
 
     return logger
+
 
 # Create default logger instance
 logger = get_logger("LOG")

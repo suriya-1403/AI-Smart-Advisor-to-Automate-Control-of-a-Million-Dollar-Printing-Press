@@ -2,15 +2,16 @@
 RAG Engine for the RAG Chatbot.
 """
 
-import re
 import json
-import streamlit as st
-from typing import Dict, List, Any
+import re
+from typing import Any, Dict, List
 
-from lib.vector_db import VectorDBManager
-from lib.query_processor import QueryProcessor
-from lib.document_scorer import DocumentScorer
+import streamlit as st
+
 from config import MAX_RAG_CONTEXT, MAX_SEARCH_RESULTS
+from lib.document_scorer import DocumentScorer
+from lib.query_processor import QueryProcessor
+from lib.vector_db import VectorDBManager
 from log import logger
 
 
@@ -23,11 +24,11 @@ class RAGEngine:
     """
 
     def __init__(
-            self,
-            vector_db: VectorDBManager,
-            query_processor: QueryProcessor,
-            document_scorer: DocumentScorer,
-            llm
+        self,
+        vector_db: VectorDBManager,
+        query_processor: QueryProcessor,
+        document_scorer: DocumentScorer,
+        llm,
     ):
         """Initialize the RAG Engine."""
         self.vector_db = vector_db
@@ -45,59 +46,78 @@ class RAGEngine:
         Returns:
             String containing the generated answer
         """
+        logger.debug(f"RAG Engine answering question: '{user_query}'")
         # Generate query embedding
         query_embedding = self.query_processor.generate_embedding(user_query)
+        logger.debug("Generated query embedding for question")
 
         try:
             # Check for special cases (direct lookups)
             file_match = re.search(r'["\']?([^"\']+\.json)["\']?', user_query)
-            event_id_match = re.search(r'event\s+id\s*[:\s]\s*([a-zA-Z0-9-_]+)', user_query, re.IGNORECASE)
+            event_id_match = re.search(
+                r"event\s+id\s*[:\s]\s*([a-zA-Z0-9-_]+)", user_query, re.IGNORECASE
+            )
 
             if file_match:
                 filename = file_match.group(1)
+                logger.debug(f"Detected filename special case: {filename}")
                 st.info(f"Looking for information about file: {filename}")
 
                 # Query by filename
                 results = self.vector_db.query_by_embedding(
                     query_embedding,
                     where_clause={"filename": filename},
-                    n_results=MAX_RAG_CONTEXT
+                    n_results=MAX_RAG_CONTEXT,
                 )
             elif event_id_match:
                 event_id = event_id_match.group(1)
+                logger.debug(f"Detected event ID special case: {event_id}")
                 st.info(f"Looking for information about event ID: {event_id}")
 
                 # Query by event ID
                 results = self.vector_db.query_by_embedding(
                     query_embedding,
                     where_clause={"event_id": event_id},
-                    n_results=MAX_RAG_CONTEXT
+                    n_results=MAX_RAG_CONTEXT,
                 )
             else:
+                logger.info("Using standard semantic search for question")
                 # Standard semantic search
                 results = self.vector_db.query_by_embedding(
-                    query_embedding,
-                    n_results=MAX_RAG_CONTEXT
+                    query_embedding, n_results=MAX_RAG_CONTEXT
                 )
 
             # Check if we found any documents
             if not results["documents"] or not results["documents"][0]:
-                return "I couldn't find specific information about that document or configuration. Could you try rephrasing your question?"
-
+                return (
+                    "I couldn't find specific information about that document or configuration. "
+                    "Could you try rephrasing your question?"
+                )
+            logger.debug(
+                f"Retrieved "
+                f"{len(results['documents'][0]) if results['documents'] and results['documents'][0] else 0} "
+                f"documents for context"
+            )
             # Build context from retrieved documents with their metadata
             context_sections = []
 
             for i in range(min(MAX_RAG_CONTEXT, len(results["documents"][0]))):
-                if i < len(results["documents"][0]) and i < len(results["metadatas"][0]):
+                if i < len(results["documents"][0]) and i < len(
+                    results["metadatas"][0]
+                ):
                     document_text = results["documents"][0][i]
                     metadata = results["metadatas"][0][i]
 
                     context_sections.append(f"Document {i + 1}:\n{document_text}")
-                    context_sections.append(f"Document {i + 1} Metadata:\n{json.dumps(metadata, indent=2)}")
+                    context_sections.append(
+                        f"Document {i + 1} Metadata:\n{json.dumps(metadata, indent=2)}"
+                    )
 
             # Join all context sections
             full_context = "\n\n".join(context_sections)
-
+            logger.debug(
+                f"Sending RAG prompt to LLM with {len(context_sections)} context sections"
+            )
             # Create RAG prompt
             rag_prompt = f"""
             Given the following context information retrieved from a document database:
@@ -115,6 +135,7 @@ class RAGEngine:
 
             # Generate response using LLM with retrieved context
             response = self.llm.invoke(rag_prompt)
+            logger.debug(f"Generated RAG response of {len(response)} characters")
             return response
 
         except Exception as e:
@@ -131,6 +152,7 @@ class RAGEngine:
         Returns:
             List of document dictionaries matching the query
         """
+        logger.debug(f"Searching documents for: '{user_query}'")
         # Expand query to get structured filters
         query_filters = self.query_processor.expand_query(user_query)
 
@@ -138,7 +160,7 @@ class RAGEngine:
         query_embedding = self.query_processor.generate_embedding(user_query)
 
         # Show extracted parameters
-        st.write(f"📊 **Extracted Search Parameters:**")
+        st.write("📊 **Extracted Search Parameters:**")
         for key, value in query_filters.items():
             st.write(f"- {key}: {value}")
 
@@ -150,7 +172,9 @@ class RAGEngine:
             where_clause["$and"].append({"Ink Coverage": query_filters["Ink Coverage"]})
 
         if "Media Coating" in query_filters and query_filters["Media Coating"]:
-            where_clause["$and"].append({"Media Coating": query_filters["Media Coating"]})
+            where_clause["$and"].append(
+                {"Media Coating": query_filters["Media Coating"]}
+            )
 
         if "Media Finish" in query_filters and query_filters["Media Finish"]:
             where_clause["$and"].append({"Media Finish": query_filters["Media Finish"]})
@@ -158,14 +182,13 @@ class RAGEngine:
         # Handle location separately since it might be part of a string
         if "location" in query_filters and query_filters["location"]:
             where_clause["$and"].append({"location": query_filters["location"]})
-
+        logger.debug(f"Built where clause: {where_clause}")
         try:
             # If no filters were extracted, perform a pure semantic search
             if not where_clause["$and"]:
                 st.info("ℹ️ Using semantic search without filters")
                 query_results = self.vector_db.query_by_embedding(
-                    query_embedding,
-                    n_results=MAX_SEARCH_RESULTS
+                    query_embedding, n_results=MAX_SEARCH_RESULTS
                 )
             else:
                 # Apply filters with semantic search
@@ -173,15 +196,19 @@ class RAGEngine:
                 query_results = self.vector_db.query_by_embedding(
                     query_embedding,
                     where_clause=where_clause,
-                    n_results=MAX_SEARCH_RESULTS
+                    n_results=MAX_SEARCH_RESULTS,
                 )
 
             # Get the documents retrieved by vector similarity
-            retrieved_docs = query_results["metadatas"][0] if query_results["metadatas"] else []
+            retrieved_docs = (
+                query_results["metadatas"][0] if query_results["metadatas"] else []
+            )
 
             if retrieved_docs:
                 # Rank documents based on relevance to query
-                ranked_docs = self.document_scorer.rank_documents(retrieved_docs, user_query)
+                ranked_docs = self.document_scorer.rank_documents(
+                    retrieved_docs, user_query
+                )
                 return ranked_docs
 
             return []
@@ -191,13 +218,19 @@ class RAGEngine:
             # Fallback to simpler search
             try:
                 st.info("ℹ️ Trying fallback search")
-                query_results = self.vector_db.query_by_embedding(query_embedding, n_results=5)
-                return query_results["metadatas"][0] if query_results["metadatas"] else []
+                query_results = self.vector_db.query_by_embedding(
+                    query_embedding, n_results=5
+                )
+                return (
+                    query_results["metadatas"][0] if query_results["metadatas"] else []
+                )
             except Exception as fallback_error:
                 logger.error(f"❌ Fallback search failed: {fallback_error}")
                 return []
 
-    def analyze_documents(self, user_query: str, documents: List[Dict[str, Any]]) -> str:
+    def analyze_documents(
+        self, user_query: str, documents: List[Dict[str, Any]]
+    ) -> str:
         """
         Generate an analysis of the top retrieved documents.
 

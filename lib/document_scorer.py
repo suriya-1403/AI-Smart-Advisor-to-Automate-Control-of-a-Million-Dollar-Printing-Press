@@ -3,7 +3,7 @@ Document scoring for the RAG Chatbot.
 """
 
 import re
-from typing import Dict, List, Tuple, Any
+from typing import Any, Dict, List, Tuple
 
 from config import MAX_DISPLAY_RESULTS
 from log import logger
@@ -49,10 +49,16 @@ class DocumentScorer:
 
         # Check for media coating
         if "coat" in query_lower:
-            if "coated" in query_lower and "coated" in str(doc.get("Media Coating", "")).lower():
+            if (
+                "coated" in query_lower
+                and "coated" in str(doc.get("Media Coating", "")).lower()
+            ):
                 score += 10
                 explanation.append("Matches requested coated media")
-            elif "uncoated" in query_lower and "uncoated" in str(doc.get("Media Coating", "")).lower():
+            elif (
+                "uncoated" in query_lower
+                and "uncoated" in str(doc.get("Media Coating", "")).lower()
+            ):
                 score += 10
                 explanation.append("Matches requested uncoated media")
 
@@ -60,15 +66,21 @@ class DocumentScorer:
         if "silk" in query_lower and "silk" in str(doc.get("Media Finish", "")).lower():
             score += 10
             explanation.append("Matches requested silk finish")
-        elif "matte" in query_lower and "matte" in str(doc.get("Media Finish", "")).lower():
+        elif (
+            "matte" in query_lower
+            and "matte" in str(doc.get("Media Finish", "")).lower()
+        ):
             score += 10
             explanation.append("Matches requested matte finish")
-        elif "gloss" in query_lower and "gloss" in str(doc.get("Media Finish", "")).lower():
+        elif (
+            "gloss" in query_lower
+            and "gloss" in str(doc.get("Media Finish", "")).lower()
+        ):
             score += 10
             explanation.append("Matches requested gloss finish")
 
         # Check for GSM weight
-        gsm_matches = re.findall(r'(\d+)\s*gsm', query_lower)
+        gsm_matches = re.findall(r"(\d+)\s*gsm", query_lower)
         if gsm_matches and "Media Weight GSM" in doc:
             requested_gsm = int(gsm_matches[0])
             doc_gsm = int(doc["Media Weight GSM"]) if doc["Media Weight GSM"] else 0
@@ -79,10 +91,14 @@ class DocumentScorer:
                 explanation.append(f"Exact match for requested {requested_gsm} GSM")
             elif gsm_diff <= 20:
                 score += 10
-                explanation.append(f"Close match for GSM: {doc_gsm} vs requested {requested_gsm}")
+                explanation.append(
+                    f"Close match for GSM: {doc_gsm} vs requested {requested_gsm}"
+                )
             elif gsm_diff <= 50:
                 score += 5
-                explanation.append(f"Approximate GSM match: {doc_gsm} vs requested {requested_gsm}")
+                explanation.append(
+                    f"Approximate GSM match: {doc_gsm} vs requested {requested_gsm}"
+                )
 
         # Check for location if mentioned
         if "location" in doc and doc["location"]:
@@ -96,18 +112,27 @@ class DocumentScorer:
             press_model = str(doc["Press Model"]).lower()
             # Check for partial matches in query
             for word in press_model.split():
-                if len(word) > 3 and word in query_lower:  # Only check significant words
+                if (
+                    len(word) > 3 and word in query_lower
+                ):  # Only check significant words
                     score += 10
-                    explanation.append(f"Matches requested press model: {doc['Press Model']}")
+                    explanation.append(
+                        f"Matches requested press model: {doc['Press Model']}"
+                    )
                     break
 
-        return score, ". ".join(explanation) if explanation else "Matched based on general relevance."
+        return (
+            score,
+            ". ".join(explanation)
+            if explanation
+            else "Matched based on general relevance.",
+        )
 
     def rank_documents(
-            self,
-            documents: List[Dict[str, Any]],
-            query: str,
-            max_results: int = MAX_DISPLAY_RESULTS
+        self,
+        documents: List[Dict[str, Any]],
+        query: str,
+        max_results: int = MAX_DISPLAY_RESULTS,
     ) -> List[Dict[str, Any]]:
         """
         Rank documents based on their relevance to the query.
@@ -120,24 +145,39 @@ class DocumentScorer:
         Returns:
             List of ranked document dictionaries with explanations
         """
+        logger.debug(f"Ranking {len(documents)} documents for query: '{query}'")
+
         # Apply scoring to each document
         scored_docs = []
         for doc in documents:
             score, explanation = self.score_document(doc, query)
+            logger.debug(
+                f"Document {doc.get('event_id', 'unknown')} scored {score}: {explanation}"
+            )
             doc_copy = doc.copy()
             doc_copy["score"] = score
             doc_copy["Reason for Selection"] = explanation
             scored_docs.append(doc_copy)
 
         # Sort by score in descending order
-        ranked_results = sorted(scored_docs, key=lambda x: x.get("score", 0), reverse=True)
+        ranked_results = sorted(
+            scored_docs, key=lambda x: x.get("score", 0), reverse=True
+        )
+        logger.debug(
+            f"Documents ranked, top score: "
+            f"{ranked_results[0].get('score', 0) if ranked_results else 'N/A'}"
+        )
 
         # Limit to top results
-        top_ranked = ranked_results[:max_results] if len(ranked_results) >= max_results else ranked_results
+        top_ranked = (
+            ranked_results[:max_results]
+            if len(ranked_results) >= max_results
+            else ranked_results
+        )
 
         # Clean up score field before returning
         for doc in top_ranked:
             if "score" in doc:
                 del doc["score"]
-
+        logger.debug(f"Returning top {len(top_ranked)} documents")
         return top_ranked
