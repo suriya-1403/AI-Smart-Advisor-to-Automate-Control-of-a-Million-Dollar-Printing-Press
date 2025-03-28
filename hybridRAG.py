@@ -109,7 +109,7 @@ def rank_and_explain_with_llm(top_results):
     ---
     **Ranking Criteria (Priority Order)**:
     1. **Ink Coverage Range** should be Heavy.
-    2. **Paper Weight** must be closest to 100 GSM.
+    2. **Paper Weight** must be closest to 220 GSM.
     3. **Coated Media** is Uncoated Inkjet.
 
     ---

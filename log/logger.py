@@ -1,13 +1,21 @@
+"""
+Logging functionality for the application.
+"""
+
 import logging
 import os
 
-def get_logger(name: str, log_file: str = "app.log"):
+def get_logger(name, log_file="app.log", level=logging.INFO):
     """
     Configure and return a logger instance.
 
-    :param name: Name of the logger, usually __name__ from the calling module.
-    :param log_file: Path to the log file. Defaults to 'app.log'.
-    :return: Configured logger instance.
+    Args:
+        name: Name of the logger, usually __name__ from the calling module.
+        log_file: Path to the log file. Defaults to 'app.log'.
+        level: Logging level. Defaults to logging.INFO.
+
+    Returns:
+        Configured logger instance.
     """
     # Ensure the logs directory exists
     log_dir = os.path.dirname(log_file)
@@ -16,7 +24,7 @@ def get_logger(name: str, log_file: str = "app.log"):
 
     # Configure the logger
     logger = logging.getLogger(name)
-    logger.setLevel(logging.INFO)  # Set the default logging level
+    logger.setLevel(level)
 
     # Create handlers
     file_handler = logging.FileHandler(log_file, mode="a")  # Log to a file
@@ -24,7 +32,7 @@ def get_logger(name: str, log_file: str = "app.log"):
 
     # Set log formats
     formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        '%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s'
     )
     file_handler.setFormatter(formatter)
     console_handler.setFormatter(formatter)
@@ -35,3 +43,6 @@ def get_logger(name: str, log_file: str = "app.log"):
         logger.addHandler(console_handler)
 
     return logger
+
+# Create default logger instance
+logger = get_logger("LOG")
