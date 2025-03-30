@@ -26,3 +26,5 @@ docarray
 streamlit
 sentence_transformers
 openpyxl
+rank_bm25
+spacy

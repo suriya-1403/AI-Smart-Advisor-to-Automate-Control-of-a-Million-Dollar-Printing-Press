@@ -66,6 +66,39 @@ class VectorDBManager:
             logger.error(f"Error counting collection: {e}")
             return 0
 
+    def get_all_documents(self) -> List[Dict[str, Any]]:
+        """
+        Retrieve all documents from the collection for indexing purposes.
+
+        Returns:
+            List of all document metadata dictionaries
+        """
+        try:
+            # Get the total count
+            count = self.collection.count()
+
+            if count == 0:
+                logger.warning("Collection is empty")
+                return []
+
+            # Query with a large limit to get all documents
+            # Note: ChromaDB's get() method doesn't have pagination,
+            # so we need to retrieve all at once
+            results = self.collection.get(limit=count)
+
+            docs = []
+            if results and "metadatas" in results and results["metadatas"]:
+                for metadata in results["metadatas"]:
+                    if metadata:  # Ensure metadata is not None
+                        docs.append(metadata)
+
+            logger.info(f"Retrieved {len(docs)} documents from collection")
+            return docs
+
+        except Exception as e:
+            logger.error(f"Error retrieving all documents: {e}")
+            return []
+
     def store_documents(self, documents: List[Dict[str, Any]]) -> None:
         """Store multiple documents in the vector database."""
         for doc in documents:

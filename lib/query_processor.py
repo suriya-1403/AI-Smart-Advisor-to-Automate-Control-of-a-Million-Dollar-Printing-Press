@@ -72,28 +72,34 @@ class QueryProcessor:
         """
         logger.debug(f"Expanding query: '{user_query}'")
         prompt = f"""
-        Analyze this user query: "{user_query}"
+            Analyze this user query: "{user_query}"
 
-        The user is searching for printing documents with specific characteristics.
-        Based ONLY on what's explicitly mentioned in the query, extract these parameters:
+            The user is searching for printing documents with specific characteristics.
+            Extract ALL parameters mentioned in the query, including but not limited to:
 
-        1. Ink Coverage: [Painted, Heavy, Medium, Light]
-        2. Media Weight GSM: [numerical value]
-        3. Media Coating: [Coated, Uncoated]
-        4. Media Finish: [Silk, Matte, Gloss]
+            - Ink Coverage (e.g., Heavy, Medium, Light, Painted)
+            - Media Weight GSM (numerical values)
+            - Media Coating (e.g., Coated, Uncoated)
+            - Media Finish (e.g., Silk, Matte, Gloss)
+            - Location (any location mentioned)
+            - Press Model (any printing press mentioned)
+            - Event Type (any event type mentioned)
+            - Date/Time (any temporal information)
+            - Any other clearly specified parameters
 
-        Format your response EXACTLY like this example:
-        {{
-            "Ink Coverage": "...",
-            "Media Weight GSM": ..,
-            "Media Coating": "..",
-            "Media Finish": "..."
-        }}
+            Format your response as a JSON object with parameter names as keys and extracted values as values.
+            Example:
+            {{
+                "Ink Coverage": "Heavy",
+                "Media Weight GSM": 220,
+                "Media Coating": "Coated",
+                "Location": "San Diego"
+            }}
 
-        Only include parameters that are EXPLICITLY mentioned in the query.
-        If a parameter is not mentioned, DO NOT include it in the JSON.
-        The response must be ONLY the JSON object - no other text, explanations or code blocks.
-        """
+            Only include parameters that are EXPLICITLY mentioned in the query.
+            If a parameter is not mentioned, DO NOT include it in the JSON.
+            The response must be ONLY the JSON object - no other text, explanations or code blocks.
+            """
 
         response = self.llm.invoke(prompt)
         logger.debug("Got structured query response from LLM")

@@ -53,3 +53,11 @@ Enable debug logging by setting the DEBUG environment variable:
 ```bash
 streamlit run main.py -- debug
 ```
+
+## Vector Database Inspection
+
+View the contents of your ChromaDB collections:
+
+```bash
+streamlit run viewChromaDB.py
+```
