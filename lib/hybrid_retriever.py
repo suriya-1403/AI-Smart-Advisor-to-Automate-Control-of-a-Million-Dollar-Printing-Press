@@ -3,15 +3,13 @@ Hybrid retrieval system that combines vector search with BM25 lexical search &
 numerical query-adaptive proximity scoring.
 """
 
-import logging
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
 import spacy
 from rank_bm25 import BM25Okapi
 
-# Configure logging
-logger = logging.getLogger(__name__)
+from log import logger
 
 
 class DynamicHybridRetriever:
@@ -74,7 +72,8 @@ class DynamicHybridRetriever:
                 ],
                 "values": ["heavy", "medium", "light", "painted"],
                 "analysis_weight": 0.0,  # Dynamically set based on query
-                "default_importance": 0.8,  # Base importance if mentioned
+                # "default_importance": 0.8,  # Base importance if mentioned
+                "default_importance": 0.0,  # Base importance if mentioned
             },
             "Media Coating": {
                 "aliases": [
@@ -86,7 +85,8 @@ class DynamicHybridRetriever:
                 ],
                 "values": ["coated", "uncoated"],
                 "analysis_weight": 0.0,
-                "default_importance": 0.7,
+                # "default_importance": 0.7,
+                "default_importance": 0.0,
             },
             "Media Finish": {
                 "aliases": [
@@ -101,7 +101,8 @@ class DynamicHybridRetriever:
                 ],
                 "values": ["silk", "matte", "gloss", "glossy", "satin"],
                 "analysis_weight": 0.0,
-                "default_importance": 0.6,
+                # "default_importance": 0.6,
+                "default_importance": 0.0,
             },
             "Media Weight GSM": {
                 "aliases": [
@@ -114,17 +115,20 @@ class DynamicHybridRetriever:
                 ],
                 "numeric": True,
                 "analysis_weight": 0.0,
-                "default_importance": 0.75,  # Higher default for GSM
+                # "default_importance": 0.75,  # Higher default for GSM
+                "default_importance": 0.0,
             },
             "Press Model": {
                 "aliases": ["press", "model", "printer", "machine", "device"],
                 "analysis_weight": 0.0,
-                "default_importance": 0.5,
+                # "default_importance": 0.5,
+                "default_importance": 0.0,
             },
             "location": {
                 "aliases": ["location", "place", "site", "facility", "where"],
                 "analysis_weight": 0.0,
-                "default_importance": 0.4,
+                # "default_importance": 0.4,
+                "default_importance": 0.0,
             },
         }
 
@@ -542,7 +546,7 @@ class DynamicHybridRetriever:
         query: str,
         query_embedding: List[float],
         where_clause: Optional[Dict[str, Any]] = None,
-        n_results: int = 20,
+        n_results: int = 10,
     ) -> Tuple[List[Dict[str, Any]], List[float], List[str]]:
         """
         Retrieve documents using dynamic hybrid search with query-adaptive weighting.
@@ -590,7 +594,7 @@ class DynamicHybridRetriever:
         vector_results = self.vector_db.query_by_embedding(
             query_embedding,
             where_clause,
-            max(n_results * 2, 50),  # Get more results for reranking
+            max(n_results * 2, 34),  # Get more results for reranking
         )
 
         vector_docs = (
@@ -610,6 +614,21 @@ class DynamicHybridRetriever:
             1.0 - (distance / max_distance) for distance in vector_distances
         ]
         normalized_vector_scores = self._normalize_scores(vector_scores)
+
+        logger.debug("===== Documents sorted by VECTOR score =====")
+        # Create a list of (doc, score) pairs
+        vector_doc_scores = list(zip(vector_docs, normalized_vector_scores))
+        # Sort by vector score (descending)
+        vector_sorted = sorted(vector_doc_scores, key=lambda x: x[1], reverse=True)
+        # Log the top 10 documents
+        for i, (doc, score) in enumerate(vector_sorted[:10]):
+            doc_id = doc.get("event_id", "unknown")
+            ink = doc.get("Ink Coverage", "N/A")
+            coating = doc.get("Media Coating", "N/A")
+            gsm = doc.get("Media Weight GSM", "N/A")
+            logger.debug(
+                f"Vector Rank {i + 1}: Doc {doc_id} - Score: {score:.4f} - Ink: {ink}, Coating: {coating}, GSM: {gsm}"
+            )
 
         # Get BM25 scores
         tokenized_query = self._tokenize(query)
@@ -670,6 +689,21 @@ class DynamicHybridRetriever:
 
         # Normalize scores
         normalized_bm25_scores = self._normalize_scores(bm25_scores)
+
+        logger.debug("===== Documents sorted by BM25 score =====")
+        # Create a list of (doc, score) pairs
+        bm25_doc_scores = list(zip(vector_docs, normalized_bm25_scores))
+        # Sort by BM25 score (descending)
+        bm25_sorted = sorted(bm25_doc_scores, key=lambda x: x[1], reverse=True)
+        # Log the top 10 documents
+        for i, (doc, score) in enumerate(bm25_sorted):
+            doc_id = doc.get("event_id", "unknown")
+            ink = doc.get("Ink Coverage", "N/A")
+            coating = doc.get("Media Coating", "N/A")
+            gsm = doc.get("Media Weight GSM", "N/A")
+            logger.debug(
+                f"BM25 Rank {i + 1}: Doc {doc_id} - Score: {score:.4f} - Ink: {ink}, Coating: {coating}, GSM: {gsm}"
+            )
         normalized_field_scores = {
             field: self._normalize_scores(scores)
             for field, scores in field_scores.items()

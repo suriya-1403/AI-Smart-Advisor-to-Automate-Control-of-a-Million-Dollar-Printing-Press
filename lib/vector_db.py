@@ -136,6 +136,44 @@ class VectorDBManager:
             ids=[str(doc["event_id"])],
         )
 
+    # def query_by_embedding(
+    #     self,
+    #     query_embedding: List[float],
+    #     where_clause: Optional[Dict[str, Any]] = None,
+    #     n_results: int = 3,
+    # ) -> Dict[str, Any]:
+    #     """Query the vector database using embeddings and optional filters."""
+    #     logger.debug(f"Querying vector DB for {n_results} results")
+    #     try:
+    #         if where_clause and where_clause.get("$and", []):
+    #             results = self.collection.query(
+    #                 query_embeddings=[query_embedding],
+    #                 where=where_clause,
+    #                 n_results=n_results,
+    #             )
+    #             logger.debug(
+    #                 f"Vector query with filters returned "
+    #                 f"{len(results['documents'][0]) if results['documents'] and results['documents'][0] else 0} "
+    #                 f"documents"
+    #             )
+    #             return results
+    #         else:
+    #             results = self.collection.query(
+    #                 query_embeddings=[query_embedding], n_results=n_results
+    #             )
+    #             logger.debug(
+    #                 f"Vector query without filters returned "
+    #                 f"{len(results['documents'][0]) if results['documents'] and results['documents'][0] else 0} "
+    #                 f"documents"
+    #             )
+    #             return results
+    #     except Exception as e:
+    #         logger.error(f"Error in query: {e}")
+    #         # Try a simpler query as fallback
+    #         logger.debug("Attempting fallback query")
+    #         return self.collection.query(
+    #             query_embeddings=[query_embedding], n_results=n_results
+    #         )
     def query_by_embedding(
         self,
         query_embedding: List[float],
@@ -144,8 +182,16 @@ class VectorDBManager:
     ) -> Dict[str, Any]:
         """Query the vector database using embeddings and optional filters."""
         logger.debug(f"Querying vector DB for {n_results} results")
+
+        # Add this flag to temporarily disable where_clause
+        disable_where_clause = True  # Set to False to re-enable filters
+
         try:
-            if where_clause and where_clause.get("$and", []):
+            if (
+                not disable_where_clause
+                and where_clause
+                and where_clause.get("$and", [])
+            ):
                 results = self.collection.query(
                     query_embeddings=[query_embedding],
                     where=where_clause,
@@ -158,9 +204,16 @@ class VectorDBManager:
                 )
                 return results
             else:
+                # Added log message to show when filters are being bypassed
+                if where_clause and where_clause.get("$and", []):
+                    logger.debug(
+                        "Filters exist but are bypassed due to disable_where_clause flag"
+                    )
+
                 results = self.collection.query(
                     query_embeddings=[query_embedding], n_results=n_results
                 )
+                # logger.debug(f"Vector results:{results}")
                 logger.debug(
                     f"Vector query without filters returned "
                     f"{len(results['documents'][0]) if results['documents'] and results['documents'][0] else 0} "

@@ -31,7 +31,7 @@ from log import logger
 if DISABLE_CUDA:
     os.environ["PYTORCH_NO_CUDA"] = "1"
 
-logger.info("Starting RAG Chatbot application")
+logger.info("===== Starting RAG Chatbot application =====")
 
 
 class RAGChatbotApp:
