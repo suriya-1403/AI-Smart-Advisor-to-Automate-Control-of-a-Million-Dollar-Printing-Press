@@ -14,7 +14,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
 lib64/
 parts/
 sdist/
@@ -160,3 +159,25 @@ cython_debug/
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
+/Dataset
+llama32pipeline.ipynb
+
+ProjectSpecificationTemplate-PvZ1.pdf
+RAGfromScratch.ipynb
+Bargraph.png
+benchmark-Haystack with Ollama.py
+benchmark-Langchain with Ollama.py
+benchmark_times_all_models.csv
+extracted.pdf
+output 112524.rtf
+path_to_output.pdf
+plotting.ipynb
+ProjectSpecificationTemplate-PvZ1.pdf
+RAG with Haystack.ipynb
+RAGfromScratch.py
+
+SpiderGraph.png
+stripping.ipynb
+testing.ipynb
+text extraction.ipynb
+/Unconventional
