@@ -181,3 +181,7 @@ stripping.ipynb
 testing.ipynb
 text extraction.ipynb
 /Unconventional
+/mcp_server/data/documents/
+/mcp_server/data/rulesets/
+*.json
+*.html
