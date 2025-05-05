@@ -185,3 +185,5 @@ text extraction.ipynb
 /mcp_server/data/rulesets/
 *.json
 *.html
+
+.idea/
