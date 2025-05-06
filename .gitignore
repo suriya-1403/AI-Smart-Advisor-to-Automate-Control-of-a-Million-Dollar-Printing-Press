@@ -186,4 +186,9 @@ text extraction.ipynb
 *.json
 *.html
 
+# Ignore all .idea files and directories
 .idea/
+.idea/**
+*.iml
+*.iws
+*.ipr

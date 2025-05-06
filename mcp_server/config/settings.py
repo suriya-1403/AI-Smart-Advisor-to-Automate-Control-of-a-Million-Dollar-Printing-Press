@@ -6,8 +6,8 @@ import os
 
 # Server configuration
 SERVER_NAME = "PrintSystem"
-SERVER_HOST = "127.0.0.1"
-SERVER_PORT = 8050
+SERVER_HOST = os.getenv("HOST", "0.0.0.0")
+SERVER_PORT = int(os.getenv("PORT", 8050))
 SERVER_TRANSPORT = "sse"
 
 # Path configuration

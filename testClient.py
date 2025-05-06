@@ -6,7 +6,7 @@ from mcp.client.sse import sse_client
 
 async def main():
     # Connect to MCP server via SSE
-    async with sse_client("http://localhost:8050/sse") as (read_stream, write_stream):
+    async with sse_client("http://0.0.0.0:8050/sse") as (read_stream, write_stream):
         async with ClientSession(read_stream, write_stream) as session:
             # Initialize session
             await session.initialize()
