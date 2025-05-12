@@ -9,6 +9,7 @@ dependencies = [
     "langchain-ollama>=0.3.2",
     "langgraph>=0.4.1",
     "langsmith>=0.3.42",
+    "lxml>=5.4.0",
     "mcp[cli]>=1.7.1",
     "pandas>=2.2.3",
 ]

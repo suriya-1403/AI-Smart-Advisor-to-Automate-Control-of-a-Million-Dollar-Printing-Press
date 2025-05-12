@@ -9,9 +9,12 @@ import re
 from collections import Counter
 
 import pandas as pd
+from langchain_ollama import OllamaLLM
 from mcp.server.fastmcp import FastMCP
 
-from mcp_server.config import DOCUMENTS_DIR
+from mcp_server.config import DOCUMENTS_DIR, LLM_MODEL
+
+llm = OllamaLLM(model=LLM_MODEL)
 
 
 def load_json_data(file_path):
@@ -107,6 +110,41 @@ def is_strict_match(record, conditions):
             if str(expected).strip().lower() != value_str:
                 return False
     return True
+
+
+def extract_conditions_with_llm(query: str) -> dict:
+    """
+    Extract structured printing conditions from a user query using an LLM.
+
+    Args:
+        query: User query string containing printing specifications.
+
+    Returns:
+        Dictionary containing extracted printing conditions such as ink coverage,
+        media coating, media finish, and press model. Returns empty dict if
+        extraction fails.
+    """
+    prompt = f"""You are an assistant that extracts structured printing conditions from user queries.
+     From the given query, identify any of the following conditions (if present):
+    - Ink Coverage: Heavy, Medium, or Light
+    - Media Coating: Coated or Uncoated
+    - Media Finish: Glossy or Matte
+    - Press Model: HP T250 or HP T490
+
+    Only include fields mentioned or implied in the query. Return a JSON object.
+    Query: "{query}"
+    JSON: """
+
+    output = llm.invoke(prompt)
+
+    print(f"DEBUG: LLM output: {output}")
+
+    try:
+        extracted = json.loads(output)
+        return extracted
+    except json.JSONDecodeError:
+        print("LLM response was not valid JSON:", output)
+        return {}
 
 
 class BM25:
@@ -267,27 +305,7 @@ def setup_document_tools(mcp: FastMCP):
         # Step 2: Extract conditions
         extracted_conditions = {}
         if conditions is None:
-            if "heavy ink" in query.lower():
-                extracted_conditions["Ink Coverage"] = "Heavy"
-            elif "medium ink" in query.lower():
-                extracted_conditions["Ink Coverage"] = "Medium"
-            elif "light ink" in query.lower():
-                extracted_conditions["Ink Coverage"] = "Light"
-
-            if "coated" in query.lower():
-                extracted_conditions["Media Coating"] = "Coated"
-            elif "uncoated" in query.lower():
-                extracted_conditions["Media Coating"] = "Uncoated"
-
-            if "glossy" in query.lower():
-                extracted_conditions["Media Finish"] = "Glossy"
-            elif "matte" in query.lower():
-                extracted_conditions["Media Finish"] = "Matte"
-
-            press_models = ["HP T250", "HP T490"]
-            for model in press_models:
-                if model.lower() in query.lower():
-                    extracted_conditions["Press Model"] = model + " HD Press"
+            extracted_conditions = extract_conditions_with_llm(query)
         else:
             extracted_conditions = conditions
 

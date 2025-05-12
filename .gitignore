@@ -192,3 +192,5 @@ text extraction.ipynb
 *.iml
 *.iws
 *.ipr
+
+Frontend/node_modules
