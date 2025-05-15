@@ -25,39 +25,23 @@ Hybrid RAG System: Enables intelligent querying of print report data (this branc
 3. Ensure Ollama is installed and running with the required models:
    ```bash
    ollama pull llama3.2
-   ollama pull granite3-dense
    ollama pull mistral
-   ollama pull deepseek-r1
    ```
 ## Usage
 
 1. Start the application:
    ```bash
-   streamlit run main.py
+   uv run -m mcp_server.server.server
+   uv run -m mcp_server.mainWeb
+   cd Frontend
+   npm start
    ```
 
 2. Upload JSON documents containing printing configuration data.
 
-3. Click "Store JSON in Vector Store" to embed and store documents.
-
-4. Enter queries in the search box:
+3. Enter queries in the search box:
    - For searches: "Find documents with heavy ink coverage, closest to 220 gsm, and coated media."
    - For questions: "Tell me about the media finish and coating in event 75?"
 
-5. View results or get answers based on the retrieved documents.
+4. View results or get answers based on the retrieved documents.
 
-## Debug Mode
-
-Enable debug logging by setting the DEBUG environment variable:
-
-```bash
-streamlit run main.py -- debug
-```
-
-## Vector Database Inspection
-
-View the contents of your ChromaDB collections:
-
-```bash
-streamlit run viewChromaDB.py
-```
