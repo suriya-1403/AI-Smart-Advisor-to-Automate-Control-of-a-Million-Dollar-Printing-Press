@@ -13,13 +13,22 @@ from mcp.client.sse import sse_client
 
 from mcp_server.config import SERVER_HOST, SERVER_PORT
 from mcp_server.core import create_router
-from mcp_server.workflows import create_document_workflow, create_ruleset_workflow
+from mcp_server.workflows import (
+    create_document_workflow,
+    create_event_workflow,
+    create_general_knowledge_workflow,
+    create_ruleset_workflow,
+)
 
 # Initialize client and workflows
 client = Client()
 router = create_router(callbacks=[ConsoleCallbackHandler()])
 doc_workflow = create_document_workflow(callbacks=[ConsoleCallbackHandler()])
 ruleset_workflow = create_ruleset_workflow(callbacks=[ConsoleCallbackHandler()])
+event_workflow = create_event_workflow(callbacks=[ConsoleCallbackHandler()])
+knowledge_workflow = create_general_knowledge_workflow(
+    callbacks=[ConsoleCallbackHandler()]
+)
 
 # Create FastAPI app
 app = FastAPI(title="MCP Query API")
@@ -71,6 +80,58 @@ async def process_query(query: str):
                                 "type": "document_search",
                                 "document": full_doc,
                                 "summary": summary,
+                            }
+                        elif task_type == "event_information":
+                            # Process event information query
+                            event_result = await event_workflow.ainvoke(
+                                {"query": query, "session": session}
+                            )
+                            print("\n🔧 LangGraph Workflow Structure:")
+                            print(event_workflow.get_graph().print_ascii())
+
+                            event_identifier = event_result.get(
+                                "event_identifier", "Unknown"
+                            )
+                            found_documents = event_result.get(
+                                "found_documents", "No documents found"
+                            )
+                            structured_data = event_result.get(
+                                "structured_data", "No data structured"
+                            )
+                            summary = event_result.get(
+                                "summary", "No summary generated"
+                            )
+
+                            return {
+                                "type": "event_information",
+                                "event_identifier": event_identifier,
+                                "documents": found_documents,
+                                "structured_data": structured_data,
+                                "summary": summary,
+                            }
+                        elif task_type == "general_knowledge":
+                            # Process general knowledge query
+                            knowledge_result = await knowledge_workflow.ainvoke(
+                                {"query": query, "session": session}
+                            )
+                            print("\n🔧 LangGraph Workflow Structure:")
+                            print(knowledge_workflow.get_graph().print_ascii())
+
+                            formatted_query = knowledge_result.get(
+                                "formatted_query", query
+                            )
+                            knowledge_response = knowledge_result.get(
+                                "knowledge_response", "No response generated"
+                            )
+                            final_answer = knowledge_result.get(
+                                "final_answer", "No final answer generated"
+                            )
+
+                            return {
+                                "type": "general_knowledge",
+                                "formatted_query": formatted_query,
+                                "knowledge_response": knowledge_response,
+                                "final_answer": final_answer,
                             }
                         else:
                             # Process ruleset evaluation query

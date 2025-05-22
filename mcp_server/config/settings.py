@@ -22,7 +22,7 @@ DOCUMENTS_DIR = os.path.join(DATA_DIR, "documents")
 RULESETS_DIR = os.path.join(DATA_DIR, "rulesets")
 
 # LLM configuration
-LLM_MODEL = "llama3.2"
+LLM_MODEL = "llama-3.3-70b-versatile"
 
 # Ruleset files
 RULESET_FILES = {

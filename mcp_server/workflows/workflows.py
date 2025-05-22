@@ -14,7 +14,7 @@ from mcp_server.config import GROQ_API, LLM_MODEL
 
 # Initialize LLM
 # llm = OllamaLLM(model=LLM_MODEL)
-llm = ChatGroq(model="mistral-saba-24b", api_key=GROQ_API)
+llm = ChatGroq(model=LLM_MODEL, api_key=GROQ_API)
 
 
 class DocSearchState(TypedDict):
@@ -179,6 +179,212 @@ def create_ruleset_workflow(callbacks=None):
     workflow.add_edge("format_parameters", "evaluate_ruleset")
     workflow.add_edge("evaluate_ruleset", "explain_results")
     workflow.add_edge("explain_results", END)
+
+    compiled = workflow.compile()
+    if callbacks:
+        compiled.callbacks = callbacks
+    return compiled
+
+
+class EventInfoState(TypedDict):
+    """
+    State type for event information workflow.
+    """
+
+    query: str
+    event_identifier: str
+    found_documents: str
+    structured_data: str
+    summary: str
+    session: object  # MCP ClientSession
+
+
+@traceable(name="EventInformationWorkflow")
+def create_event_workflow(callbacks=None):
+    """
+    Create a workflow for event information retrieval.
+
+    Args:
+        callbacks: Callbacks for the graph.
+
+    Returns:
+        Compiled workflow graph.
+    """
+
+    async def extract_event_identifier(state: EventInfoState):
+        """
+        Extract event identifier from the user's query.
+        """
+        prompt = (
+            "Extract the event identifier from this query. Look for event IDs, "
+            "event numbers, location names, or other identifying information. "
+            "Return just the key identifier (e.g., '71', 'Vegas expo', 'event_128')."
+        )
+        result = await llm.ainvoke([prompt, state["query"]])
+        return {
+            "event_identifier": str(result.content)
+            if hasattr(result, "content")
+            else str(result)
+        }
+
+    async def search_event_documents(state: EventInfoState):
+        """
+        Search for documents related to the specific event.
+        """
+        result = await state["session"].call_tool(
+            "get_event_information", {"query": state["query"]}
+        )
+        return {"found_documents": result.content[0].text}
+
+    async def structure_event_data(state: EventInfoState):
+        """
+        Structure the event data for analysis.
+        """
+        prompt = (
+            "Structure the following event information into key categories: "
+            "event metadata, printing specifications, equipment settings, and performance data. "
+            "Extract and organize all relevant details."
+        )
+        result = await llm.ainvoke([prompt, state["found_documents"]])
+        return {
+            "structured_data": str(result.content)
+            if hasattr(result, "content")
+            else str(result)
+        }
+
+    async def generate_event_summary(state: EventInfoState):
+        """
+        Generate a comprehensive summary of the event.
+        """
+        prompt = (
+            "Create a comprehensive narrative summary of this printing event. "
+            "Include what happened, the printing specifications used, equipment configuration, "
+            "and any notable outcomes or results. Make it informative and easy to understand."
+        )
+        result = await llm.ainvoke([prompt, state["structured_data"]])
+        return {
+            "summary": str(result.content)
+            if hasattr(result, "content")
+            else str(result)
+        }
+
+    workflow = StateGraph(EventInfoState)
+    workflow.add_node("extract_event_identifier", extract_event_identifier)
+    workflow.add_node("search_event_documents", search_event_documents)
+    workflow.add_node("structure_event_data", structure_event_data)
+    workflow.add_node("generate_event_summary", generate_event_summary)
+
+    workflow.add_edge(START, "extract_event_identifier")
+    workflow.add_edge("extract_event_identifier", "search_event_documents")
+    workflow.add_edge("search_event_documents", "structure_event_data")
+    workflow.add_edge("structure_event_data", "generate_event_summary")
+    workflow.add_edge("generate_event_summary", END)
+
+    compiled = workflow.compile()
+    if callbacks:
+        compiled.callbacks = callbacks
+    return compiled
+
+
+class GeneralKnowledgeState(TypedDict):
+    """
+    State type for general knowledge workflow.
+    """
+
+    query: str
+    formatted_query: str
+    knowledge_response: str
+    final_answer: str
+    session: object  # MCP ClientSession
+
+
+@traceable(name="GeneralKnowledgeWorkflow")
+def create_general_knowledge_workflow(callbacks=None):
+    """
+    Create a workflow for general knowledge responses.
+
+    Args:
+        callbacks: Callbacks for the graph.
+
+    Returns:
+        Compiled workflow graph.
+    """
+
+    async def format_knowledge_query(state: GeneralKnowledgeState):
+        """
+        Format the user's query for better knowledge retrieval.
+        """
+        prompt = (
+            "Reformat this printing-related question to be clear and comprehensive "
+            "for educational response generation."
+        )
+        result = await llm.ainvoke([prompt, state["query"]])
+        return {
+            "formatted_query": str(result.content)
+            if hasattr(result, "content")
+            else str(result)
+        }
+
+    async def get_knowledge_response(state: GeneralKnowledgeState):
+        """
+        Get comprehensive knowledge response using the MCP tool.
+        """
+        result = await state["session"].call_tool(
+            "answer_general_question", {"query": state["formatted_query"]}
+        )
+
+        # Extract the response from the MCP tool result
+        raw_response = (
+            result.content[0].text
+            if hasattr(result, "content") and result.content
+            else str(result)
+        )
+
+        return {"knowledge_response": raw_response}
+
+    async def format_final_answer(state: GeneralKnowledgeState):
+        """
+        Format the final answer for user presentation.
+        """
+        try:
+            # Try to parse the JSON response
+            knowledge_data = json.loads(state["knowledge_response"])
+
+            # Format as a comprehensive response
+            formatted_answer = f"""
+**Answer:**
+{knowledge_data.get('answer', 'No answer provided')}
+
+**Key Points:**
+{chr(10).join([f"• {point}" for point in knowledge_data.get('key_points', [])])}
+
+**Technical Details:**
+{knowledge_data.get('technical_details', 'No technical details provided')}
+
+**Best Practices:**
+{knowledge_data.get('best_practices', 'No best practices provided')}
+
+**Related Concepts:**
+{', '.join(knowledge_data.get('related_concepts', []))}
+"""
+
+            return {"final_answer": formatted_answer}
+
+        except json.JSONDecodeError:
+            # If not JSON, use the raw response
+            return {"final_answer": state["knowledge_response"]}
+        except Exception as e:
+            return {"final_answer": f"Error formatting response: {str(e)}"}
+
+    workflow = StateGraph(GeneralKnowledgeState)
+    workflow.add_node("format_knowledge_query", format_knowledge_query)
+    workflow.add_node("get_knowledge_response", get_knowledge_response)
+    workflow.add_node("format_final_answer", format_final_answer)
+
+    workflow.add_edge(START, "format_knowledge_query")
+    workflow.add_edge("format_knowledge_query", "get_knowledge_response")
+    workflow.add_edge("get_knowledge_response", "format_final_answer")
+    workflow.add_edge("format_final_answer", END)
 
     compiled = workflow.compile()
     if callbacks:

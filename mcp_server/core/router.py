@@ -35,7 +35,7 @@ def create_router(callbacks=None):
     """
     # Setup LLM
     # llm = OllamaLLM(model=LLM_MODEL)
-    llm = ChatGroq(model="mistral-saba-24b", api_key=GROQ_API)
+    llm = ChatGroq(model=LLM_MODEL, api_key=GROQ_API)
 
     # Define classifier node
     def classify_query(state: State):
@@ -53,15 +53,29 @@ def create_router(callbacks=None):
 
         2. Ruleset evaluation: Determining appropriate printer settings or evaluating printing parameters based on established rules. This involves applying printing rules to specific scenarios to recommend proper configurations. Examples:
         - "I want to print on uncoated eggshell paper with an ink coverage of 96% and optical density of 88%. The paper weight is 372 GSM. Use the Performance HDK print mode, with a 1-Zone dryer, Eltex moisturizer, Silicon surfactant, and EMT winders give final values.”
-
         - "Give target press speed and target dryer power I'm working with coated glossy media, ink coverage of 45%, and optical density of 60%. The weight is 70 GSM, and the print mode is Quality. The dryer is set to DEM, using Weko moisturizer, Water as surfactant, and Hunkeler winders."
-
         - "The job uses coated inkjet paper with a smooth finish, ink coverage at 96%, optical density 97%, and media weight 385 GSM. We’re printing in Performance mode, with a 3-Zone dryer, Eltex moisturizer, Silicon surfactant, and EMT winders give target dryer power and other values.”
-
         - “Give final values for printing on uncoated satin paper (weight: 210 GSM) with 50% ink and 85% density, in Performance mode, using Default dryer, Eltex, Water surfactant, and EMT winders.”
 
+        3. Event information: Asking for specific details about a particular printing event, including what happened, the parameters used, and outcomes. These queries focus on retrieving and summarizing information about specific events. Examples:
+        - "Tell me about event 71"
+        - "What happened in event 42?"
+        - "Give me details about event_id 128"
+        - "Show me information about the Vegas expo event"
+        - "Describe event 205"
+        - "What were the results of event 89?"
+        - "Tell me what occurred during event 156"
 
-        Return ONLY the task type as either "document_search" or "ruleset_evaluation".
+        4. General knowledge: Educational questions about printing concepts, media types, and technology explanations. These are "how", "what", "why" questions that seek to understand concepts rather than find specific documents or calculate settings. Examples:
+        - "Can you explain the difference between coated and uncoated media?"
+        - "How does heavy ink coverage affect media requirements?"
+        - "What's the relationship between ink coverage and media weight?"
+        - "Why would someone choose silk finish over matte?"
+        - "How do dryer configurations work?"
+        - "What are the benefits of moisturizers in printing?"
+        - "How does media weight impact print quality?"
+
+        Return ONLY the task type as either "document_search", "ruleset_evaluation", "event_information" or "general_knowledge".
         """
 
         try:
@@ -79,20 +93,75 @@ def create_router(callbacks=None):
 
             content_lower = str(content).lower()
 
-            # Simple classification logic
-            if (
+            print(f"DEBUG: LLM Classifier: {content_lower}")
+
+            query_lower = state["query"].lower()
+
+            # Check for event-related patterns first
+            event_patterns = [
+                "event",
+                "event id",
+                "event_id",
+                r"event\s*\d+",
+                r"event_id\s*\d+",
+            ]
+
+            event_keywords = [
+                "tell",
+                "about",
+                "what",
+                "describe",
+                "show",
+                "information",
+                "details",
+                "happened",
+                "occurred",
+            ]
+
+            # More explicit event detection
+            is_event_query = False
+            if any(pattern in query_lower for pattern in event_patterns):
+                is_event_query = True
+            elif "event" in query_lower and any(
+                keyword in query_lower for keyword in event_keywords
+            ):
+                is_event_query = True
+            elif "event_information" in content_lower:
+                is_event_query = True
+
+            if is_event_query:
+                print(f"🎯 Event information detected")
+                return {"task_type": "event_information"}
+
+            # Check LLM classification result
+            if "general_knowledge" in content_lower:
+                print(f"🤖 LLM classified as general_knowledge")
+                return {"task_type": "general_knowledge"}
+            elif "event_information" in content_lower:
+                print(f"🤖 LLM classified as event_information")
+                return {"task_type": "event_information"}
+            elif (
                 "document" in content_lower
                 or "find" in content_lower
                 or "search" in content_lower
                 or "report" in content_lower
                 or "pdf" in content_lower
+                or "document_search" in content_lower
             ):
+                print(f"🤖 LLM classified as document_search")
                 return {"task_type": "document_search"}
             else:
+                print(f"🤖 LLM classified as ruleset_evaluation")
                 return {"task_type": "ruleset_evaluation"}
         except Exception as e:
             print(f"Error in classify_query: {str(e)}")
-            # Default to document search if classification fails
+            # Default to general knowledge for educational queries
+            query_lower = state["query"].lower()
+            if any(
+                indicator in query_lower
+                for indicator in ["explain", "how", "what", "why"]
+            ):
+                return {"task_type": "general_knowledge"}
             return {"task_type": "document_search"}
 
     # Define graph
@@ -104,7 +173,12 @@ def create_router(callbacks=None):
     workflow.add_conditional_edges(
         "classifier",
         lambda x: x["task_type"],
-        {"document_search": END, "ruleset_evaluation": END},
+        {
+            "document_search": END,
+            "ruleset_evaluation": END,
+            "event_information": END,
+            "general_knowledge": END,
+        },
     )
 
     # Apply callbacks if provided

@@ -148,6 +148,22 @@ ${data.result.summary}`;
 
           **Explanation**
           ${data.result.explanation}`;
+        } else if (data.result.type === 'event_information') {
+          // NEW: Handle event information
+          formattedResponse = `
+### Event Information
+
+${data.result.summary || data.result.documents || 'Event details retrieved successfully.'}`;
+
+          // // Parse event data for structured display
+          // const eventInfo = parseEventInformation(data.result.summary || data.result.documents || '');
+          // setEventData(eventInfo);
+        } else if (data.result.type === 'general_knowledge') {
+          // NEW: Handle general knowledge responses
+          formattedResponse = `
+### Knowledge Response
+
+${data.result.final_answer || data.result.knowledge_response || 'Knowledge response retrieved successfully.'}`;
         } else {
           formattedResponse = "The server returned an unexpected response format.";
         }

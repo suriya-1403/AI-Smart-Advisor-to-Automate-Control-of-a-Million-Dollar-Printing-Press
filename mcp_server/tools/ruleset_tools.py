@@ -1226,7 +1226,7 @@ try:
 
     def load_llm(model_name="llama3.2"):
         """Load a LLM from Ollama"""
-        return ChatGroq(model="mistral-saba-24b", api_key=GROQ_API)
+        return ChatGroq(model=LLM_MODEL, api_key=GROQ_API)
 
     def query_llm(
         input_params, intermediate_values, final_config, question, model_name="llama3.2"
@@ -1308,7 +1308,7 @@ Extracted JSON (only the object, nothing else):
 """,
     )
 
-    llm = ChatGroq(model="mistral-saba-24b", api_key=GROQ_API)
+    llm = ChatGroq(model=LLM_MODEL, api_key=GROQ_API)
     raw = llm.invoke(prompt.format(query=query))
 
     # Extract JSON from response

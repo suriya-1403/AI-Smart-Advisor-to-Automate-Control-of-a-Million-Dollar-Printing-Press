@@ -16,7 +16,7 @@ from mcp.server.fastmcp import FastMCP
 
 from mcp_server.config import DOCUMENTS_DIR, GROQ_API, LLM_MODEL
 
-llm = ChatGroq(model="mistral-saba-24b", api_key=GROQ_API)
+llm = ChatGroq(model=LLM_MODEL, api_key=GROQ_API)
 
 
 def load_json_data(file_path):
