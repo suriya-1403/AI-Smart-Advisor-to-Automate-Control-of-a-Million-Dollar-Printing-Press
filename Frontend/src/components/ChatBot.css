@@ -367,6 +367,7 @@
   padding: 1.25rem;
   background: linear-gradient(to bottom, rgba(0, 0, 0, 0), #000000 30%);
   backdrop-filter: blur(10px);
+  z-index: 10;
 }
 
 .input-form {
@@ -444,7 +445,7 @@
   margin: 0 auto;
   width: 100%;
   padding: 1rem;
-  padding-bottom: 6rem;
+  padding-bottom: 8.5rem;
 }
 
 .chat-messages {
@@ -752,7 +753,7 @@
   }
 
   .input-form-container {
-    padding: 1.5rem 1rem 1rem;
+    padding: 0.75rem;
   }
 
   .gradient-balls.chat {
@@ -784,8 +785,7 @@
   }
 
   .messages-container {
-    padding: 1rem;
-    padding-bottom: 5rem;
+    padding-bottom: 7.5rem;
   }
 
   .message {

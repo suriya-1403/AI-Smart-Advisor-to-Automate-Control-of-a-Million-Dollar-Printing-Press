@@ -409,6 +409,8 @@ ${data.result.final_answer || data.result.knowledge_response || 'Knowledge respo
           </div>
         )}
 
+        
+
         <div className="input-form-container">
           <form onSubmit={handleSubmit} className="input-form">
             <textarea
