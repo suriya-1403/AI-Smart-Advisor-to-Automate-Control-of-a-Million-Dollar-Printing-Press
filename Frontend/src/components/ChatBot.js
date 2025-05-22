@@ -340,7 +340,8 @@ ${data.result.final_answer || data.result.knowledge_response || 'Knowledge respo
       )}
 
       <div className="chat-content">
-        {messages.length === 0 ? (
+        {/* Suggestions box on first page (no messages) */}
+        {messages.length === 0 && (
           <div className="suggestions-container">
             <div className="suggestions-grid">
               {suggestions.map((suggestion, index) => (
@@ -355,6 +356,9 @@ ${data.result.final_answer || data.result.knowledge_response || 'Knowledge respo
               ))}
             </div>
           </div>
+        )}
+        {messages.length === 0 ? (
+          <div style={{ height: '6rem' }} />
         ) : (
           <div className="messages-container" ref={chatMessagesRef}>
             <div className="chat-messages">
@@ -408,9 +412,23 @@ ${data.result.final_answer || data.result.knowledge_response || 'Knowledge respo
             <div ref={messagesEndRef} />
           </div>
         )}
-
-        
-
+        {/* Suggestions box only after first bot message and not while thinking */}
+        {messages.length > 0 && messages.some(m => m.type === 'bot') && !isTyping && (
+          <div className="suggestions-container" style={{ position: 'fixed', left: 0, right: 0, bottom: '5.5rem', zIndex: 9, background: 'linear-gradient(to bottom, rgba(0,0,0,0.7), #000000 90%)', maxWidth: '48rem', margin: '0 auto', paddingBottom: '0.5rem' }}>
+            <div className="suggestions-grid">
+              {suggestions.slice(0, 2).map((suggestion, index) => (
+                <button
+                  key={index}
+                  className="suggestion-card"
+                  onClick={() => handleSuggestionClick(suggestion)}
+                >
+                  <div className="suggestion-title">{suggestion.title}</div>
+                  <div className="suggestion-description">{suggestion.description}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="input-form-container">
           <form onSubmit={handleSubmit} className="input-form">
             <textarea
