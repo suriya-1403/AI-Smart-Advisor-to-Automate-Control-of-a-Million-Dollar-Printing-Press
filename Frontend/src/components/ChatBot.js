@@ -67,6 +67,7 @@ const ChatBot = () => {
   const [documentResultText, setDocumentResultText] = useState('');
   const [summary, setSummary] = useState([]);
   const [foundLine, setFoundLine] = useState('');
+  const requestStartTimeRef = useRef(null);
 
   // API endpoint configuration
   const API_URL = 'http://0.0.0.0:8000/query';
@@ -126,6 +127,9 @@ const ChatBot = () => {
       });
 
       const data = await response.json();
+      console.log('Backend response:', data);
+      const responseTime = requestStartTimeRef.current ? Date.now() - requestStartTimeRef.current : null;
+      const modelName = data.result && data.result.model ? data.result.model : '';
 
       if (data.status === 'success' && data.result) {
         // Format the response based on the result type
@@ -149,17 +153,11 @@ ${data.result.summary}`;
           **Explanation**
           ${data.result.explanation}`;
         } else if (data.result.type === 'event_information') {
-          // NEW: Handle event information
           formattedResponse = `
 ### Event Information
 
 ${data.result.summary || data.result.documents || 'Event details retrieved successfully.'}`;
-
-          // // Parse event data for structured display
-          // const eventInfo = parseEventInformation(data.result.summary || data.result.documents || '');
-          // setEventData(eventInfo);
         } else if (data.result.type === 'general_knowledge') {
-          // NEW: Handle general knowledge responses
           formattedResponse = `
 ### Knowledge Response
 
@@ -171,23 +169,38 @@ ${data.result.final_answer || data.result.knowledge_response || 'Knowledge respo
         setMessages(prev => [...prev, {
           type: 'bot',
           content: formattedResponse,
-          timestamp: new Date()
+          timestamp: new Date(),
+          responseTime,
+          modelName
         }]);
+        console.log('Bot message:', {
+          responseTime,
+          modelName,
+          requestStartTime: requestStartTimeRef.current,
+          now: Date.now()
+        });
+        requestStartTimeRef.current = null;
       } else {
         // Handle error response
         setMessages(prev => [...prev, {
           type: 'bot',
           content: `Sorry, I encountered an error: ${data.message || 'Unknown error'}`,
-          timestamp: new Date()
+          timestamp: new Date(),
+          responseTime,
+          modelName
         }]);
+        requestStartTimeRef.current = null;
       }
     } catch (error) {
       console.error('Error fetching response:', error);
       setMessages(prev => [...prev, {
         type: 'bot',
         content: `Sorry, I wasn't able to connect to the server. Please try again later.`,
-        timestamp: new Date()
+        timestamp: new Date(),
+        responseTime: requestStartTimeRef.current ? Date.now() - requestStartTimeRef.current : null,
+        modelName: ''
       }]);
+      requestStartTimeRef.current = null;
     } finally {
       setIsTyping(false);
     }
@@ -210,7 +223,7 @@ ${data.result.final_answer || data.result.knowledge_response || 'Knowledge respo
       textareaRef.current.style.height = '52px';
     }
 
-    // Use real API instead of simulated response
+    requestStartTimeRef.current = Date.now(); // Use ref for timing
     await fetchResponse(trimmedMessage);
   };
 
@@ -230,7 +243,7 @@ ${data.result.final_answer || data.result.knowledge_response || 'Knowledge respo
     };
 
     setMessages(prev => [...prev, userMessage]);
-    // Use real API instead of simulated response
+    requestStartTimeRef.current = Date.now(); // Use ref for timing
     await fetchResponse(fullQuestion);
   };
 
@@ -363,6 +376,16 @@ ${data.result.final_answer || data.result.knowledge_response || 'Knowledge respo
                     )}
                     <div className="message-time">
                       {formatTime(message.timestamp)}
+                      {message.type === 'bot' && message.responseTime != null && (
+                        <span style={{ marginLeft: 8, color:' rgba(255, 255, 255, 0.5)', fontSize: '0.75rem' }}>
+                          {(message.responseTime / 1000).toFixed(2)} s
+                        </span>
+                      )}
+                      {message.modelName && (
+                            <span style={{ marginLeft: 8, color: 'rgb(0, 150, 214)', fontSize: '0.75rem' }}>
+                              {message.modelName}
+                            </span>
+                          )}
                     </div>
                   </div>
                 </div>

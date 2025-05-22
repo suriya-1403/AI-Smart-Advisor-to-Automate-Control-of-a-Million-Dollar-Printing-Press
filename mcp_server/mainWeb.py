@@ -11,7 +11,7 @@ from langsmith import Client
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 
-from mcp_server.config import SERVER_HOST, SERVER_PORT
+from mcp_server.config import SERVER_HOST, SERVER_PORT, LLM_MODEL
 from mcp_server.core import create_router
 from mcp_server.workflows import (
     create_document_workflow,
@@ -80,6 +80,7 @@ async def process_query(query: str):
                                 "type": "document_search",
                                 "document": full_doc,
                                 "summary": summary,
+                                "model": LLM_MODEL
                             }
                         elif task_type == "event_information":
                             # Process event information query
@@ -108,6 +109,7 @@ async def process_query(query: str):
                                 "documents": found_documents,
                                 "structured_data": structured_data,
                                 "summary": summary,
+                                "model": LLM_MODEL
                             }
                         elif task_type == "general_knowledge":
                             # Process general knowledge query
@@ -132,6 +134,7 @@ async def process_query(query: str):
                                 "formatted_query": formatted_query,
                                 "knowledge_response": knowledge_response,
                                 "final_answer": final_answer,
+                                "model": LLM_MODEL
                             }
                         else:
                             # Process ruleset evaluation query
@@ -180,6 +183,7 @@ async def process_query(query: str):
                                 "type": "ruleset_evaluation",
                                 "report": report,
                                 "explanation": llm_insights_raw,
+                                "model": LLM_MODEL
                             }
                     except Exception as e:
                         print(f"Error during workflow execution: {str(e)}")
