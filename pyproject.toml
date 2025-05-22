@@ -5,7 +5,12 @@ description = "MCP Server for document search and ruleset evaluation"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "bs4>=0.0.2",
+    "fastapi>=0.115.12",
+    "grandalf>=0.8",
+    "langchain>=0.3.25",
     "langchain-core>=0.3.58",
+    "langchain-groq>=0.3.2",
     "langchain-ollama>=0.3.2",
     "langgraph>=0.4.1",
     "langsmith>=0.3.42",

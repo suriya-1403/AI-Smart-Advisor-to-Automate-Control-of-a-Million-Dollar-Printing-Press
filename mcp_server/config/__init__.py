@@ -5,6 +5,7 @@ Configuration package for the MCP Server.
 from mcp_server.config.settings import (
     DATA_DIR,
     DOCUMENTS_DIR,
+    GROQ_API,
     LLM_MODEL,
     RULESET_FILES,
     RULESETS_DIR,
@@ -24,4 +25,5 @@ __all__ = [
     "RULESETS_DIR",
     "LLM_MODEL",
     "RULESET_FILES",
+    "GROQ_API",
 ]

@@ -1,3 +1,4 @@
+import json
 import traceback
 
 import uvicorn
@@ -78,12 +79,46 @@ async def process_query(query: str):
                             )
                             print("\n🔧 LangGraph Workflow Structure:")
                             print(ruleset_workflow.get_graph().print_ascii())
-                            explanation = ruleset_result.get(
+                            explanation_raw = ruleset_result.get(
                                 "explanation", "No explanation generated"
                             )
+                            print("📦 RAW RULESET RESULT:", ruleset_result)
+                            # parsed_insights = json.loads(ruleset_result['evaluation']['llm_insights'])
+                            # llm_insights_str = ruleset_result["evaluation"]["llm_insights"]
+                            llm_insights_raw = ruleset_result["evaluation"][
+                                "llm_insights"
+                            ]
+                            report = ruleset_result.get("evaluation", {}).get("report")
+
+                            if report:
+                                print("🧪 Report:", report)
+                            else:
+                                print("⚠️ No report found.")
+                                # If it's a valid JSON string, parse it. Otherwise, treat it as plain text.
+                            # if isinstance(llm_insights_raw, str) and llm_insights_raw.strip().startswith("{"):
+                            #     llm_insights = json.loads(llm_insights_raw)
+                            #     report = llm_insights.get("report", "No report")
+                            #     llm_response = llm_insights.get("llm_insights", "No explanation")
+                            #     print("🧪 Report:", llm_insights.get("report", "No report"))
+                            #     print("🧪 Explanation:", llm_insights.get("llm_insights", "No explanation"))
+                            # else:
+                            #     llm_insights_raw= print("🧪 Plain Explanation:", llm_insights_raw)
+                            # print("🧪 Type of explanation:", type(ruleset_result.get("explanation")))
+                            # report = "No report generated"
+                            # llm_response = "No LLM response"
+
+                            # if isinstance(explanation_raw, dict) and isinstance(explanation_raw.get("llm_insights"), str):
+                            #     try:
+                            #         # llm_insights is still a stringified JSON
+                            #         parsed = json.loads(explanation_raw["llm_insights"])
+                            #         report = parsed.get("report", "No report found")
+                            #         llm_response = parsed.get("llm_insights", "No LLM response")
+                            #     except Exception as e:
+                            #         print(f"⚠️ Failed to parse inner LLM JSON: {e}")
                             return {
                                 "type": "ruleset_evaluation",
-                                "explanation": explanation,
+                                "report": report,
+                                "explanation": llm_insights_raw,
                             }
                     except Exception as e:
                         print(f"Error during workflow execution: {str(e)}")

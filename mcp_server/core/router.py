@@ -3,11 +3,13 @@ Query router for determining task type.
 """
 
 from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_ollama import OllamaLLM
+
+# from langchain_ollama import OllamaLLM
+from langchain_groq import ChatGroq
 from langgraph.graph import END, START, StateGraph
 from typing_extensions import TypedDict
 
-from mcp_server.config import LLM_MODEL
+from mcp_server.config import GROQ_API, LLM_MODEL
 
 
 # Define state
@@ -32,7 +34,8 @@ def create_router(callbacks=None):
         Compiled router graph.
     """
     # Setup LLM
-    llm = OllamaLLM(model=LLM_MODEL)
+    # llm = OllamaLLM(model=LLM_MODEL)
+    llm = ChatGroq(model="mistral-saba-24b", api_key=GROQ_API)
 
     # Define classifier node
     def classify_query(state: State):
@@ -41,8 +44,22 @@ def create_router(callbacks=None):
         """
         system_prompt = """
         You are a classifier that determines whether a user query is about:
-        1. Document search: Finding or retrieving documents based on content
-        2. Ruleset evaluation: Evaluating printing parameters using rulesets
+
+        1. Document search: Finding relevant documents from a collection based on user query criteria. This involves matching the query against document metadata or content to retrieve the most appropriate document(s). Examples:
+        - "Find prints with heavy ink coverage on glossy media"
+        - "Show me documents about T250 printers using 75GSM paper"
+        - "Get all reports from the Las Vegas expo"
+        - "Which documents mention coated inkjet with 266 GSM?"
+
+        2. Ruleset evaluation: Determining appropriate printer settings or evaluating printing parameters based on established rules. This involves applying printing rules to specific scenarios to recommend proper configurations. Examples:
+        - "I want to print on uncoated eggshell paper with an ink coverage of 96% and optical density of 88%. The paper weight is 372 GSM. Use the Performance HDK print mode, with a 1-Zone dryer, Eltex moisturizer, Silicon surfactant, and EMT winders give final values.”
+
+        - "Give target press speed and target dryer power I'm working with coated glossy media, ink coverage of 45%, and optical density of 60%. The weight is 70 GSM, and the print mode is Quality. The dryer is set to DEM, using Weko moisturizer, Water as surfactant, and Hunkeler winders."
+
+        - "The job uses coated inkjet paper with a smooth finish, ink coverage at 96%, optical density 97%, and media weight 385 GSM. We’re printing in Performance mode, with a 3-Zone dryer, Eltex moisturizer, Silicon surfactant, and EMT winders give target dryer power and other values.”
+
+        - “Give final values for printing on uncoated satin paper (weight: 210 GSM) with 50% ink and 85% density, in Performance mode, using Default dryer, Eltex, Water surfactant, and EMT winders.”
+
 
         Return ONLY the task type as either "document_search" or "ruleset_evaluation".
         """

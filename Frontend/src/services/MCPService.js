@@ -1,6 +1,6 @@
 // mcpService.js
 class MCPService {
-  constructor(serverUrl = 'http://localhost:8050/sse') {
+  constructor(serverUrl = 'http://0.0.0.0:8000/sse') {
     this.serverUrl = serverUrl;
     this.eventSource = null;
     this.messageHandlers = [];

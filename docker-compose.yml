@@ -1,0 +1,76 @@
+services:
+  # MCP Server component
+  mcp-server:
+    image: python:3.10-slim
+    working_dir: /app
+    # First install pip packages, then run with PYTHONPATH set
+    command: >
+      bash -c "pip install -r requirements.txt &&
+              pip install -e . &&
+              PYTHONPATH=/app python -m mcp_server.server"
+    volumes:
+      - ./:/app
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8050
+      - LLM_MODEL=llama3.2
+      - PYTHONPATH=/app
+    expose:
+      - 8050
+    networks:
+      - mcp-network
+    restart: always
+
+  # Web API component
+  web-api:
+    image: python:3.10-slim
+    working_dir: /app
+    # First install pip packages, then run with PYTHONPATH set
+    command: >
+      bash -c "pip install -r requirements.txt &&
+              pip install -e . &&
+              PYTHONPATH=/app python -m mcp_server.mainWeb"
+    volumes:
+      - ./:/app
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+      - PYTHONPATH=/app
+    expose:
+      - 8000
+    depends_on:
+      - mcp-server
+    networks:
+      - mcp-network
+    restart: always
+
+  # Frontend serving using Nginx
+  frontend:
+    image: nginx:alpine
+    volumes:
+      - ./Frontend/build:/usr/share/nginx/html
+      - ./nginx-frontend.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - mcp-network
+    expose:
+      - 80
+    restart: always
+
+  # Caddy reverse proxy
+  caddy:
+    image: caddy:alpine
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+    ports:
+      - "8080:8080"
+    networks:
+      - mcp-network
+    restart: always
+    depends_on:
+      - mcp-server
+      - web-api
+      - frontend
+
+networks:
+  mcp-network:
+    driver: bridge

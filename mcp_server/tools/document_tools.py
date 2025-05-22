@@ -9,12 +9,14 @@ import re
 from collections import Counter
 
 import pandas as pd
-from langchain_ollama import OllamaLLM
+
+# from langchain_ollama import OllamaLLM
+from langchain_groq import ChatGroq
 from mcp.server.fastmcp import FastMCP
 
-from mcp_server.config import DOCUMENTS_DIR, LLM_MODEL
+from mcp_server.config import DOCUMENTS_DIR, GROQ_API, LLM_MODEL
 
-llm = OllamaLLM(model=LLM_MODEL)
+llm = ChatGroq(model="mistral-saba-24b", api_key=GROQ_API)
 
 
 def load_json_data(file_path):
@@ -138,13 +140,63 @@ def extract_conditions_with_llm(query: str) -> dict:
     output = llm.invoke(prompt)
 
     print(f"DEBUG: LLM output: {output}")
+    print(f"DEBUG: LLM output type: {type(output)}")
 
+    # Handle AIMessage response format
+    if hasattr(output, "content"):
+        content_str = str(output.content)
+    else:
+        content_str = str(output)
+
+    print(f"DEBUG: Extracted content string: {content_str}")
+
+    # Clean up the content string to extract only the JSON
+    content_str = content_str.strip()
+
+    # Remove code block markers if present
+    if content_str.startswith("```"):
+        # Find the end of the starting marker
+        start_idx = content_str.find("\n")
+        if start_idx > 0:
+            # Find the end marker
+            end_idx = content_str.rfind("```")
+            if end_idx > start_idx:
+                # Extract just the content between markers
+                content_str = content_str[start_idx + 1 : end_idx].strip()
+            else:
+                # Only remove the starting marker
+                content_str = content_str[start_idx + 1 :].strip()
+
+    print(f"DEBUG: Cleaned content string: {content_str}")
+
+    # Try to parse JSON from the cleaned content string
     try:
-        extracted = json.loads(output)
+        extracted = json.loads(content_str)
+        print(f"DEBUG: Successfully parsed JSON: {extracted}")
         return extracted
-    except json.JSONDecodeError:
-        print("LLM response was not valid JSON:", output)
-        return {}
+    except json.JSONDecodeError as json_err:
+        print(f"ERROR: Failed to parse JSON: {json_err}")
+
+        # Try to extract JSON using regex as fallback
+        import re
+
+        json_match = re.search(r"(\{.*\})", content_str, re.DOTALL)
+        if json_match:
+            try:
+                json_str = json_match.group(1)
+                print(f"DEBUG: Matched JSON string: {json_str}")
+                extracted = json.loads(json_str)
+                print(f"DEBUG: Successfully parsed JSON with regex: {extracted}")
+                return extracted
+            except json.JSONDecodeError:
+                print("ERROR: Failed to parse JSON even with regex")
+
+    # try:
+    #     extracted = json.loads(output)
+    #     return extracted
+    # except json.JSONDecodeError:
+    #     print("LLM response was not valid JSON:", output)
+    #     return {}
 
 
 class BM25:

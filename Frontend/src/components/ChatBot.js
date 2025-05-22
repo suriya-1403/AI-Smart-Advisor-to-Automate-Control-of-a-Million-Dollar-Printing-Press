@@ -1,6 +1,61 @@
 import React, { useState, useRef, useEffect } from 'react';
 import './ChatBot.css';
 
+// Move these functions to the top of the file, before the ChatBot component
+function parseDocuments(rawText) {
+  // Split by 'Result' and filter out empty strings
+  const results = rawText.split(/Result \d+:/).filter(Boolean);
+  return results.map(result => {
+    const lines = result.split('\n').map(line => line.trim()).filter(Boolean);
+    const doc = {};
+    lines.forEach(line => {
+      if (line.startsWith('Event ID:')) doc.eventId = line.replace('Event ID:', '').trim();
+      else if (line.startsWith('Date:')) doc.date = line.replace('Date:', '').trim();
+      else if (line.startsWith('Location:')) doc.location = line.replace('Location:', '').trim();
+      else if (line.startsWith('Press Model:')) doc.pressModel = line.replace('Press Model:', '').trim();
+      else if (line.startsWith('Ink Coverage:')) doc.inkCoverage = line.replace('Ink Coverage:', '').trim();
+      else if (line.startsWith('Media:')) doc.media = line.replace('Media:', '').trim();
+    });
+    return doc;
+  });
+}
+
+function parseDocumentSearch(rawText) {
+  // Extract the "Found X document(s)..." line
+  const foundLineMatch = rawText.match(/Found \d+ document\(s\) matching your query:/);
+  const foundLine = foundLineMatch ? foundLineMatch[0] : '';
+
+  // Remove the found line for further parsing
+  const rest = rawText.replace(foundLine, '').trim();
+
+  // Extract summary section (everything after 'Summary')
+  const summaryIndex = rest.indexOf('Summary');
+  let summarySection = '';
+  let mainSection = rest;
+  if (summaryIndex !== -1) {
+    summarySection = rest.slice(summaryIndex + 'Summary'.length).trim();
+    mainSection = rest.slice(0, summaryIndex).trim();
+  }
+
+  // Parse documents as before
+  const documents = parseDocuments(mainSection);
+
+  // Parse summary as bullet points (lines starting with - or *)
+  const summaryLines = summarySection
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line =>
+      line.startsWith('-') ||
+      line.startsWith('*') ||
+      line.match(/^[A-Za-z].*:/) ||
+      line.match(/^[0-9]+\./) // include numbered lines
+    );
+  // Remove leading - or * and extra spaces
+  const summary = summaryLines.map(line => line.replace(/^[-*]\s?/, '').trim());
+
+  return { foundLine, documents, summary };
+}
+
 const ChatBot = () => {
   const [inputMessage, setInputMessage] = useState('');
   const [messages, setMessages] = useState([]);
@@ -10,9 +65,11 @@ const ChatBot = () => {
   const textareaRef = useRef(null);
   const [documents, setDocuments] = useState([]);
   const [documentResultText, setDocumentResultText] = useState('');
+  const [summary, setSummary] = useState([]);
+  const [foundLine, setFoundLine] = useState('');
 
   // API endpoint configuration
-  const API_URL = 'http://localhost:8000/query';
+  const API_URL = 'http://0.0.0.0:8000/query';
 
   const suggestions = [
     {
@@ -81,11 +138,16 @@ ${data.result.document}
 
 ### Summary
 ${data.result.summary}`;
-          setDocumentResultText(data.result.document);
+          setDocumentResultText(`${data.result.document}\n\nSummary\n${data.result.summary}`);
         } else if (data.result.type === 'ruleset_evaluation') {
           formattedResponse = `
-### Ruleset Evaluation
-${data.result.explanation}`;
+          ### Ruleset Evaluation
+
+          **Report**
+          ${data.result.report}
+
+          **Explanation**
+          ${data.result.explanation}`;
         } else {
           formattedResponse = "The server returned an unexpected response format.";
         }
@@ -174,29 +236,60 @@ ${data.result.explanation}`;
     return <div dangerouslySetInnerHTML={{ __html: formattedContent }} />;
   };
 
-  function parseDocuments(rawText) {
-    // Split by 'Result' and filter out empty strings
-    const results = rawText.split(/Result \d+:/).filter(Boolean);
-    return results.map(result => {
-      const lines = result.split('\n').map(line => line.trim()).filter(Boolean);
-      const doc = {};
-      lines.forEach(line => {
-        if (line.startsWith('Event ID:')) doc.eventId = line.replace('Event ID:', '').trim();
-        else if (line.startsWith('Date:')) doc.date = line.replace('Date:', '').trim();
-        else if (line.startsWith('Location:')) doc.location = line.replace('Location:', '').trim();
-        else if (line.startsWith('Press Model:')) doc.pressModel = line.replace('Press Model:', '').trim();
-        else if (line.startsWith('Ink Coverage:')) doc.inkCoverage = line.replace('Ink Coverage:', '').trim();
-        else if (line.startsWith('Media:')) doc.media = line.replace('Media:', '').trim();
-      });
-      return doc;
-    });
-  }
-
   useEffect(() => {
     if (documentResultText) {
-      setDocuments(parseDocuments(documentResultText));
+      console.log('RAW:', documentResultText); // Debug: log the raw backend response
+      const { foundLine, documents, summary } = parseDocumentSearch(documentResultText);
+      setFoundLine(foundLine);
+      setDocuments(documents);
+      setSummary(summary);
     }
   }, [documentResultText]);
+
+  // Add this component above ChatBot
+  function DocumentResultsTable({ foundLine, documents, summary }) {
+    return (
+      <div className="results-table-container">
+        {foundLine && <div className="results-found-line">{foundLine}</div>}
+        <div className="results-table-scroll">
+          <table className="results-table-pro">
+            <thead>
+              <tr>
+                <th>Event ID</th>
+                <th>Date</th>
+                <th>Location</th>
+                <th>Press Model</th>
+                <th>Ink Coverage</th>
+                <th>Media</th>
+              </tr>
+            </thead>
+            <tbody>
+              {documents.map((doc, idx) => (
+                <tr key={idx}>
+                  <td>{doc.eventId}</td>
+                  <td>{doc.date}</td>
+                  <td>{doc.location}</td>
+                  <td>{doc.pressModel}</td>
+                  <td>{doc.inkCoverage}</td>
+                  <td>{doc.media}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {summary && summary.length > 0 && (
+          <div className="summary-card-pro">
+            <h4>Summary</h4>
+            <ul>
+              {summary.map((item, idx) => (
+                <li key={idx} dangerouslySetInnerHTML={{ __html: item.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className={`chatbot-container ${messages.length > 0 ? 'chat-active' : ''}`}>
@@ -247,7 +340,11 @@ ${data.result.explanation}`;
                         {message.type === 'bot' ? 'HP Assistant' : 'You'}
                       </span>
                     </div>
-                    {renderMessageContent(message.content)}
+                    {message.type === 'bot' && message.content.includes('Documents Found') && documents.length > 0 ? (
+                      <DocumentResultsTable foundLine={foundLine} documents={documents} summary={summary} />
+                    ) : (
+                      renderMessageContent(message.content)
+                    )}
                     <div className="message-time">
                       {formatTime(message.timestamp)}
                     </div>

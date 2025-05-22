@@ -2,15 +2,19 @@
 Workflows for document search and ruleset evaluation.
 """
 
-from langchain_ollama import OllamaLLM
+import json
+
+# from langchain_ollama import OllamaLLM
+from langchain_groq import ChatGroq
 from langgraph.graph import END, START, StateGraph
 from langsmith import traceable
 from typing_extensions import TypedDict
 
-from mcp_server.config import LLM_MODEL
+from mcp_server.config import GROQ_API, LLM_MODEL
 
 # Initialize LLM
-llm = OllamaLLM(model=LLM_MODEL)
+# llm = OllamaLLM(model=LLM_MODEL)
+llm = ChatGroq(model="mistral-saba-24b", api_key=GROQ_API)
 
 
 class DocSearchState(TypedDict):
@@ -128,6 +132,14 @@ def create_ruleset_workflow(callbacks=None):
             else str(result)
         }
 
+    # async def evaluate_ruleset(state: RulesetState):
+    #     """
+    #     Evaluate ruleset using the formatted parameters.
+    #     """
+    #     result = await state["session"].call_tool(
+    #         "evaluate_ruleset", {"query": state["formatted_parameters"]}
+    #     )
+    #     return {"evaluation": result.content[0].value}
     async def evaluate_ruleset(state: RulesetState):
         """
         Evaluate ruleset using the formatted parameters.
@@ -135,18 +147,27 @@ def create_ruleset_workflow(callbacks=None):
         result = await state["session"].call_tool(
             "evaluate_ruleset", {"query": state["formatted_parameters"]}
         )
-        return {"evaluation": result.content[0].text}
+
+        raw_text = result.content[0].text  # TextContent — you must access .text
+
+        try:
+            parsed = json.loads(raw_text)  # Only if the tool returns JSON
+        except Exception as e:
+            parsed = {"report": None, "llm_insights": raw_text}  # fallback
+
+        return {"evaluation": parsed}
 
     async def explain_results(state: RulesetState):
         """
         Explain the results of the ruleset evaluation.
         """
-        prompt = "Explain the following ruleset evaluation results in simple terms."
-        result = await llm.ainvoke([prompt, state["evaluation"]])
+        # prompt = "Explain the following ruleset evaluation results in simple terms."
+        # result = await llm.ainvoke([prompt, state["evaluation"]])
         return {
-            "explanation": str(result.content)
-            if hasattr(result, "content")
-            else str(result)
+            # "explanation": str(result.content)
+            # if hasattr(result, "content")
+            # else str(result)
+            "explanation": state["evaluation"]
         }
 
     workflow = StateGraph(RulesetState)

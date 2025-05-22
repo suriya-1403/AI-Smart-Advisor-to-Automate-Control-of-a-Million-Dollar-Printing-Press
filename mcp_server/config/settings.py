@@ -4,11 +4,16 @@ Configuration settings for the MCP Server.
 
 import os
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 # Server configuration
 SERVER_NAME = "PrintSystem"
 SERVER_HOST = os.getenv("HOST", "0.0.0.0")
 SERVER_PORT = int(os.getenv("PORT", 8050))
 SERVER_TRANSPORT = "sse"
+GROQ_API = os.getenv("groq")
 
 # Path configuration
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
