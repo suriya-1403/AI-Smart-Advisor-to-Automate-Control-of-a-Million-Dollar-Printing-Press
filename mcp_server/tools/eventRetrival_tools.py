@@ -5,12 +5,16 @@ Tools for event information retrieval and analysis.
 import json
 import os
 import re
-from typing import Dict, List, Optional
+import PyPDF2
+from typing import Dict, List, Optional, Tuple
 
 from langchain_groq import ChatGroq
 from mcp.server.fastmcp import FastMCP
 
 from mcp_server.config import DOCUMENTS_DIR, GROQ_API, LLM_MODEL
+
+# Define the PDF directory path
+PDF_DIR = "/Users/suriya/Documents/Github/AI-Smart-Advisor-to-Automate-Control-of-a-Million-Dollar-Printing-Press/mcp_server/data/PDF"
 
 
 def load_json_data(file_path):
@@ -66,6 +70,66 @@ def extract_event_identifier(query: str) -> Dict[str, str]:
     return identifiers
 
 
+def find_pdf_for_event(json_filename: str) -> Optional[str]:
+    """
+    Find the corresponding PDF file for a JSON file.
+
+    Args:
+        json_filename: Filename of the JSON file.
+
+    Returns:
+        Path to the PDF file if found, None otherwise.
+    """
+    if not os.path.exists(PDF_DIR):
+        print(f"PDF directory not found: {PDF_DIR}")
+        return None
+
+    # Extract the base name without extension
+    base_name = os.path.splitext(os.path.basename(json_filename))[0]
+    
+    # Look for PDF with matching name
+    pdf_path = os.path.join(PDF_DIR, f"{base_name}.pdf")
+    if os.path.exists(pdf_path):
+        return pdf_path
+    
+    # If not found, try to match with event_id
+    try:
+        json_data = load_json_data(json_filename)
+        if json_data and "event_id" in json_data:
+            event_id = str(json_data["event_id"])
+            
+            # Look for PDF files containing the event_id in their names
+            for filename in os.listdir(PDF_DIR):
+                if filename.endswith(".pdf") and event_id in filename:
+                    return os.path.join(PDF_DIR, filename)
+    except Exception as e:
+        print(f"Error matching PDF with event_id: {e}")
+    
+    return None
+
+
+def extract_text_from_pdf(pdf_path: str) -> str:
+    """
+    Extract text content from a PDF file.
+
+    Args:
+        pdf_path: Path to the PDF file.
+
+    Returns:
+        Extracted text content.
+    """
+    try:
+        with open(pdf_path, 'rb') as file:
+            reader = PyPDF2.PdfReader(file)
+            text = ""
+            for page_num in range(len(reader.pages)):
+                text += reader.pages[page_num].extract_text() + "\n"
+            return text
+    except Exception as e:
+        print(f"Error extracting text from PDF: {e}")
+        return f"Error extracting text from PDF: {str(e)}"
+
+
 def find_event_documents(identifiers: Dict[str, str]) -> List[Dict]:
     """
     Find documents matching the event identifiers.
@@ -74,7 +138,7 @@ def find_event_documents(identifiers: Dict[str, str]) -> List[Dict]:
         identifiers: Dictionary of search criteria.
 
     Returns:
-        List of matching document records.
+        List of matching document records with PDF paths.
     """
     matching_docs = []
 
@@ -94,6 +158,10 @@ def find_event_documents(identifiers: Dict[str, str]) -> List[Dict]:
         if "event_id" in identifiers:
             event_id = str(record.get("event_id", ""))
             if event_id == identifiers["event_id"]:
+                # Find corresponding PDF
+                pdf_path = find_pdf_for_event(file_path)
+                if pdf_path:
+                    record["pdf_path"] = pdf_path
                 matching_docs.append(record)
                 continue
 
@@ -101,6 +169,10 @@ def find_event_documents(identifiers: Dict[str, str]) -> List[Dict]:
         if "location" in identifiers:
             location = str(record.get("location", "")).lower()
             if identifiers["location"] in location:
+                # Find corresponding PDF
+                pdf_path = find_pdf_for_event(file_path)
+                if pdf_path:
+                    record["pdf_path"] = pdf_path
                 matching_docs.append(record)
 
     return matching_docs
@@ -154,6 +226,10 @@ def structure_event_data(documents: List[Dict]) -> Dict:
                 "rewinder_zone": primary_doc.get("Rewinder Zone Tension"),
             },
         },
+        "pdf_data": {
+            "path": primary_doc.get("pdf_path"),
+            "available": "pdf_path" in primary_doc,
+        },
         "raw_documents": documents,
     }
 
@@ -177,6 +253,7 @@ def generate_event_summary(structured_data: Dict) -> str:
     specs = structured_data.get("printing_specifications", {})
     equipment = structured_data.get("equipment_settings", {})
     performance = structured_data.get("performance_data", {})
+    pdf_data = structured_data.get("pdf_data", {})
 
     summary_parts = []
 
@@ -239,7 +316,13 @@ def generate_event_summary(structured_data: Dict) -> str:
         for zone, value in tensions.items():
             if value:
                 summary_parts.append(f"  - {zone.replace('_', ' ').title()}: {value}")
-
+    
+    # PDF information
+    if pdf_data.get("available"):
+        summary_parts.append("\n## Additional Documentation")
+        summary_parts.append("**PDF Report:** Available")
+        summary_parts.append(f"**PDF Path:** {pdf_data.get('path')}")
+    
     return "\n".join(summary_parts)
 
 
@@ -281,7 +364,72 @@ def setup_event_tools(mcp: FastMCP):
         # Generate summary
         summary = generate_event_summary(structured_data)
 
+        # Extract PDF content if available
+        pdf_content = ""
+        if structured_data.get("pdf_data", {}).get("available"):
+            pdf_path = structured_data["pdf_data"]["path"]
+            pdf_content = extract_text_from_pdf(pdf_path)
+            
+            if pdf_content:
+                summary += "\n\n## PDF Content Summary\n"
+                
+                # Use a language model to summarize the PDF content
+                llm = ChatGroq(model=LLM_MODEL, api_key=GROQ_API)
+                try:
+                    # Truncate PDF content if it's too long
+                    truncated_content = pdf_content[:10000] if len(pdf_content) > 10000 else pdf_content
+                    
+                    prompt = f"""
+                    Summarize the following PDF content from a printing event report:
+                    
+                    {truncated_content}
+                    
+                    Focus on key findings, metrics, and conclusions. Keep the summary concise.
+                    """
+                    
+                    result = llm.invoke(prompt)
+                    pdf_summary = result.content if hasattr(result, "content") else str(result)
+                    
+                    summary += f"\n{pdf_summary}\n\n"
+                    summary += "\n**Note:** Full PDF content is available for more detailed information."
+                except Exception as e:
+                    summary += f"\nError summarizing PDF content: {str(e)}\n"
+                    summary += f"\nRaw PDF content (first 500 chars):\n{pdf_content[:500]}...\n"
+            else:
+                summary += "\n\n**Note:** PDF file found but content could not be extracted."
+
         return summary
+
+    @mcp.tool()
+    def get_pdf_content(event_id: str) -> str:
+        """
+        Extract and return the content of a PDF file associated with an event.
+
+        Args:
+            event_id: Event ID to look for.
+
+        Returns:
+            Extracted text from the PDF.
+        """
+        if not os.path.exists(DOCUMENTS_DIR):
+            return "Documents directory not found."
+
+        json_files = [f for f in os.listdir(DOCUMENTS_DIR) if f.endswith(".json")]
+        
+        for file_name in json_files:
+            file_path = os.path.join(DOCUMENTS_DIR, file_name)
+            record = load_json_data(file_path)
+            
+            if record and str(record.get("event_id", "")) == event_id:
+                pdf_path = find_pdf_for_event(file_path)
+                
+                if pdf_path:
+                    content = extract_text_from_pdf(pdf_path)
+                    return f"PDF Content for Event {event_id}:\n\n{content}"
+                else:
+                    return f"No PDF file found for Event {event_id}."
+                
+        return f"No event found with ID {event_id}."
 
     @mcp.tool()
     def find_event_by_criteria(
@@ -326,12 +474,18 @@ def setup_event_tools(mcp: FastMCP):
             ):
                 continue
 
+            # Check for PDF
+            pdf_path = find_pdf_for_event(file_path)
+            has_pdf = "Yes" if pdf_path else "No"
+
             matching_events.append(
                 {
                     "event_id": record.get("event_id"),
                     "location": record.get("location"),
                     "date": record.get("publish_date"),
                     "press_model": record.get("Press Model"),
+                    "has_pdf": has_pdf,
+                    "pdf_path": pdf_path,
                 }
             )
 
@@ -342,7 +496,7 @@ def setup_event_tools(mcp: FastMCP):
         result_lines = ["Found matching events:"]
         for event in matching_events:
             result_lines.append(
-                f"Event {event['event_id']} - {event['press_model']} at {event['location']} ({event['date']})"
+                f"Event {event['event_id']} - {event['press_model']} at {event['location']} ({event['date']}) - PDF: {event['has_pdf']}"
             )
 
         return "\n".join(result_lines)
@@ -366,12 +520,17 @@ def setup_event_tools(mcp: FastMCP):
             record = load_json_data(file_path)
 
             if record:
+                # Check for PDF
+                pdf_path = find_pdf_for_event(file_path)
+                has_pdf = "Yes" if pdf_path else "No"
+                
                 events.append(
                     {
                         "event_id": record.get("event_id", "Unknown"),
                         "location": record.get("location", "Unknown"),
                         "date": record.get("publish_date", "Unknown"),
                         "press_model": record.get("Press Model", "Unknown"),
+                        "has_pdf": has_pdf,
                     }
                 )
 
@@ -384,7 +543,32 @@ def setup_event_tools(mcp: FastMCP):
         result_lines = ["Available Events:"]
         for event in events:
             result_lines.append(
-                f"Event {event['event_id']} - {event['press_model']} at {event['location']} ({event['date']})"
+                f"Event {event['event_id']} - {event['press_model']} at {event['location']} ({event['date']}) - PDF: {event['has_pdf']}"
             )
+
+        return "\n".join(result_lines)
+
+    @mcp.resource("events://pdf_list")
+    def list_pdf_documents() -> str:
+        """
+        List all available PDF documents.
+
+        Returns:
+            List of all PDF documents.
+        """
+        if not os.path.exists(PDF_DIR):
+            return "PDF directory not found."
+
+        pdf_files = [f for f in os.listdir(PDF_DIR) if f.endswith(".pdf")]
+        
+        if not pdf_files:
+            return "No PDF files found."
+
+        # Sort alphabetically
+        pdf_files.sort()
+
+        result_lines = ["Available PDF Documents:"]
+        for i, pdf_file in enumerate(pdf_files, 1):
+            result_lines.append(f"{i}. {pdf_file}")
 
         return "\n".join(result_lines)

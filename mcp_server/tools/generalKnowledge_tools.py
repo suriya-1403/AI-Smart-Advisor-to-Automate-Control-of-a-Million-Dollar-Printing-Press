@@ -2,13 +2,39 @@
 Tools for general knowledge responses about printing concepts.
 """
 
-import json
+import re
 from typing import Any, Dict
 
 from langchain_groq import ChatGroq
 from mcp.server.fastmcp import FastMCP
 
 from mcp_server.config import GROQ_API, LLM_MODEL
+
+
+def clean_response(response_text: str) -> str:
+    """
+    Clean up a knowledge response by removing duplicate or generic sections.
+    
+    Args:
+        response_text: Raw response text from the LLM.
+        
+    Returns:
+        Cleaned response text.
+    """
+    # Remove any "Knowledge Response" header that might be present
+    response_text = re.sub(r'^Knowledge Response\s*\n+', '', response_text, flags=re.IGNORECASE)
+    
+    # Remove the generic fallback sections at the end if they appear after proper content
+    fallback_pattern = r'\*\*Key Points:\*\*\s*•\s*Comprehensive explanation provided[\s\S]*$'
+    response_text = re.sub(fallback_pattern, '', response_text)
+    
+    # Clean up any "**Answer:**" prefix if present
+    response_text = re.sub(r'^\s*\*\*Answer:\*\*\s*', '', response_text)
+    
+    # Clean up extra whitespace
+    response_text = re.sub(r'\n{3,}', '\n\n', response_text)
+    
+    return response_text.strip()
 
 
 def setup_general_knowledge_tools(mcp: FastMCP):
@@ -29,7 +55,7 @@ def setup_general_knowledge_tools(mcp: FastMCP):
             query: User's question about printing concepts.
 
         Returns:
-            Comprehensive educational response in JSON format.
+            Comprehensive educational response with proper formatting.
         """
 
         llm = ChatGroq(model=LLM_MODEL, api_key=GROQ_API)
@@ -55,16 +81,15 @@ def setup_general_knowledge_tools(mcp: FastMCP):
         - Moisturizer and surfactant effects
         - Winder systems and tension settings
 
-        Provide your response in JSON format with the following structure:
-        {
-            "answer": "Main comprehensive answer",
-            "key_points": ["Point 1", "Point 2", "Point 3"],
-            "technical_details": "Additional technical information",
-            "best_practices": "Recommended practices",
-            "related_concepts": ["Related concept 1", "Related concept 2"]
-        }
+        Format your response with these sections:
+        1. Start with a comprehensive main answer (no heading needed)
+        2. Key Points (bullet list of important points)
+        3. Technical Details (technical specifications and information)
+        4. Best Practices (recommendations for optimal results)
+        5. Related Concepts (bullet list of related topics)
 
         Make your responses educational, accurate, and practical for print operators and technicians.
+        Do not include any generic placeholders like "Comprehensive explanation provided" or "See main answer for technical details".
         """
 
         user_prompt = f"""
@@ -86,33 +111,24 @@ def setup_general_knowledge_tools(mcp: FastMCP):
             response_content = (
                 result.content if hasattr(result, "content") else str(result)
             )
-
-            # Try to parse as JSON first
-            try:
-                parsed_response = json.loads(response_content)
-                return json.dumps(parsed_response, indent=2)
-            except json.JSONDecodeError:
-                # If not valid JSON, create a structured response
-                structured_response = {
-                    "answer": response_content,
-                    "key_points": ["Comprehensive explanation provided"],
-                    "technical_details": "See main answer for technical details",
-                    "best_practices": "Refer to main answer for best practices",
-                    "related_concepts": [
-                        "Contact HP support for additional information"
-                    ],
-                }
-                return json.dumps(structured_response, indent=2)
+            
+            # Clean up the response to remove any duplicate or generic sections
+            cleaned_response = clean_response(response_content)
+            
+            return cleaned_response
 
         except Exception as e:
-            error_response = {
-                "answer": f"I apologize, but I encountered an error while processing your question: {str(e)}",
-                "key_points": ["Error occurred during processing"],
-                "technical_details": "Please try rephrasing your question",
-                "best_practices": "Contact technical support if the issue persists",
-                "related_concepts": ["Error handling", "System troubleshooting"],
-            }
-            return json.dumps(error_response, indent=2)
+            error_message = f"""
+            ## Error Processing Request
+            
+            I apologize, but I encountered an error while processing your question: {str(e)}
+            
+            ### Troubleshooting
+            - Please try rephrasing your question
+            - Ensure your question is related to printing concepts
+            - Contact technical support if the issue persists
+            """
+            return error_message
 
     @mcp.resource("knowledge://topics")
     def list_knowledge_topics() -> str:

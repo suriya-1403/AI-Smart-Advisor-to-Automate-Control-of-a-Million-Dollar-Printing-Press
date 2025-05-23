@@ -194,6 +194,7 @@ class EventInfoState(TypedDict):
     query: str
     event_identifier: str
     found_documents: str
+    pdf_content: str
     structured_data: str
     summary: str
     session: object  # MCP ClientSession
@@ -236,16 +237,46 @@ def create_event_workflow(callbacks=None):
         )
         return {"found_documents": result.content[0].text}
 
+    async def extract_pdf_content(state: EventInfoState):
+        """
+        Extract PDF content if event identifier is a specific event ID.
+        """
+        # Check if the event identifier looks like an event ID (number)
+        if state["event_identifier"].isdigit():
+            try:
+                result = await state["session"].call_tool(
+                    "get_pdf_content", {"event_id": state["event_identifier"]}
+                )
+                return {"pdf_content": result.content[0].text}
+            except Exception as e:
+                return {"pdf_content": f"Error retrieving PDF content: {str(e)}"}
+        return {"pdf_content": ""}
+
     async def structure_event_data(state: EventInfoState):
         """
         Structure the event data for analysis.
         """
+        combined_data = state["found_documents"]
+        
+        # Include PDF content if available
+        if state["pdf_content"] and "PDF Content for Event" in state["pdf_content"]:
+            prompt = (
+                "Extract the most important insights from this PDF content. "
+                "Focus on key metrics, results, and technical details. "
+                "Limit your response to 3-5 key findings."
+            )
+            result = await llm.ainvoke([prompt, state["pdf_content"]])
+            pdf_insights = str(result.content) if hasattr(result, "content") else str(result)
+            
+            combined_data += f"\n\nPDF Key Insights:\n{pdf_insights}"
+            
         prompt = (
             "Structure the following event information into key categories: "
-            "event metadata, printing specifications, equipment settings, and performance data. "
+            "event metadata, printing specifications, equipment settings, performance data, "
+            "and PDF insights if available. "
             "Extract and organize all relevant details."
         )
-        result = await llm.ainvoke([prompt, state["found_documents"]])
+        result = await llm.ainvoke([prompt, combined_data])
         return {
             "structured_data": str(result.content)
             if hasattr(result, "content")
@@ -259,7 +290,8 @@ def create_event_workflow(callbacks=None):
         prompt = (
             "Create a comprehensive narrative summary of this printing event. "
             "Include what happened, the printing specifications used, equipment configuration, "
-            "and any notable outcomes or results. Make it informative and easy to understand."
+            "and any notable outcomes or results from both JSON data and PDF content if available. "
+            "Make it informative and easy to understand."
         )
         result = await llm.ainvoke([prompt, state["structured_data"]])
         return {
@@ -271,12 +303,14 @@ def create_event_workflow(callbacks=None):
     workflow = StateGraph(EventInfoState)
     workflow.add_node("extract_event_identifier", extract_event_identifier)
     workflow.add_node("search_event_documents", search_event_documents)
+    workflow.add_node("extract_pdf_content", extract_pdf_content)
     workflow.add_node("structure_event_data", structure_event_data)
     workflow.add_node("generate_event_summary", generate_event_summary)
 
     workflow.add_edge(START, "extract_event_identifier")
     workflow.add_edge("extract_event_identifier", "search_event_documents")
-    workflow.add_edge("search_event_documents", "structure_event_data")
+    workflow.add_edge("search_event_documents", "extract_pdf_content")
+    workflow.add_edge("extract_pdf_content", "structure_event_data")
     workflow.add_edge("structure_event_data", "generate_event_summary")
     workflow.add_edge("generate_event_summary", END)
 
@@ -284,7 +318,6 @@ def create_event_workflow(callbacks=None):
     if callbacks:
         compiled.callbacks = callbacks
     return compiled
-
 
 class GeneralKnowledgeState(TypedDict):
     """

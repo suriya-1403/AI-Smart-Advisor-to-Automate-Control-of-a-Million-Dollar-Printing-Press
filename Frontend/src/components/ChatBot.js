@@ -106,7 +106,8 @@ const ChatBot = () => {
   const [showDbModal, setShowDbModal] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]);
-  const [homeSuggestions, setHomeSuggestions] = useState(() => getRandomSuggestions(allSuggestions, 4));
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
+  const [homeSuggestions, setHomeSuggestions] = useState(() => getRandomSuggestions(allSuggestions, window.innerWidth <= 768 ? 2 : 4));
   const [chatSuggestions, setChatSuggestions] = useState(() => getRandomSuggestions(allSuggestions, 2));
 
   // API endpoint configuration
@@ -144,6 +145,20 @@ const ChatBot = () => {
       setChatSuggestions(getRandomSuggestions(allSuggestions, 2));
     }
   }, [messages]);
+
+  // Update isMobile on resize
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // When isMobile changes, update homeSuggestions
+  useEffect(() => {
+    setHomeSuggestions(getRandomSuggestions(allSuggestions, isMobile ? 2 : 4));
+  }, [isMobile]);
 
   const scrollToBottom = () => {
     if (messagesEndRef.current) {
@@ -546,7 +561,9 @@ ${data.result.final_answer || data.result.knowledge_response || 'Knowledge respo
               {dbCheckStatus === 'success' && showGreenDb && (
                 <span className="database-icon-button has-files fade-out" title="Database loaded!">
                   <svg viewBox="0 0 24 24" width="24" height="24">
-                    <path fill="currentColor" d="M12 2C6.48 2 2 4.48 2 7.5v9C2 19.52 6.48 22 12 22s10-2.48 10-5.5v-9C22 4.48 17.52 2 12 2zm0 2c4.42 0 8 1.79 8 3.5S16.42 11 12 11s-8-1.79-8-3.5S7.58 4 12 4zm0 14c-4.42 0-8-1.79-8-3.5v-2.5c2.84 1.67 6.42 2.5 8 2.5s5.16-.83 8-2.5v2.5c0 1.71-3.58 3.5-8 3.5zm0-7c-4.42 0-8-1.79-8-3.5v-2.5c2.84 1.67 6.42 2.5 8 2.5s5.16-.83 8-2.5v2.5c0 1.71-3.58 3.5-8 3.5z"/>
+                    <ellipse cx="12" cy="6" rx="8" ry="3" fill="currentColor" />
+                    <path d="M4 6v6c0 1.66 3.58 3 8 3s8-1.34 8-3V6" fill="none" stroke="currentColor" strokeWidth="2"/>
+                    <path d="M4 12v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6" fill="none" stroke="currentColor" strokeWidth="2"/>
                   </svg>
                 </span>
               )}
@@ -559,7 +576,9 @@ ${data.result.final_answer || data.result.knowledge_response || 'Knowledge respo
                   onClick={() => setShowDbModal(true)}
                 >
                   <svg viewBox="0 0 24 24" width="24" height="24">
-                    <path fill="currentColor" d="M12 2C6.48 2 2 4.48 2 7.5v9C2 19.52 6.48 22 12 22s10-2.48 10-5.5v-9C22 4.48 17.52 2 12 2zm0 2c4.42 0 8 1.79 8 3.5S16.42 11 12 11s-8-1.79-8-3.5S7.58 4 12 4zm0 14c-4.42 0-8-1.79-8-3.5v-2.5c2.84 1.67 6.42 2.5 8 2.5s5.16-.83 8-2.5v2.5c0 1.71-3.58 3.5-8 3.5zm0-7c-4.42 0-8-1.79-8-3.5v-2.5c2.84 1.67 6.42 2.5 8 2.5s5.16-.83 8-2.5v2.5c0 1.71-3.58 3.5-8 3.5z"/>
+                    <ellipse cx="12" cy="6" rx="8" ry="3" fill="currentColor" />
+                    <path d="M4 6v6c0 1.66 3.58 3 8 3s8-1.34 8-3V6" fill="none" stroke="currentColor" strokeWidth="2"/>
+                    <path d="M4 12v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6" fill="none" stroke="currentColor" strokeWidth="2"/>
                   </svg>
                 </button>
               )}

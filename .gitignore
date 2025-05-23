@@ -183,6 +183,7 @@ text extraction.ipynb
 /Unconventional
 /mcp_server/data/documents/
 /mcp_server/data/rulesets/
+/mcp_server/data/PDF/
 *.json
 *.html
 

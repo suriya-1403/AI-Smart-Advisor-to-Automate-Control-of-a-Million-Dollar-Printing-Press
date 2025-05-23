@@ -17,4 +17,5 @@ dependencies = [
     "lxml>=5.4.0",
     "mcp[cli]>=1.7.1",
     "pandas>=2.2.3",
+    "pypdf2>=3.0.1",
 ]
