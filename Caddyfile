@@ -1,11 +1,25 @@
 :8080 {
-
-  root * /Users/suriya/Documents/Github/AI-Smart-Advisor-to-Automate-Control-of-a-Million-Dollar-Printing-Press/Frontend/build
-  file_server
+  root * /usr/share/nginx/html
   encode gzip zstd
+  file_server
 
-  reverse_proxy /query* http://localhost:8000
-  reverse_proxy /docs* http://localhost:8000
-  reverse_proxy /messages* http://localhost:8050
-  reverse_proxy /sse* http://localhost:8050
+  # API Proxying
+  reverse_proxy /query* web-api:8000
+  reverse_proxy /check-json-files* web-api:8000
+  reverse_proxy /docs* web-api:8000
+  reverse_proxy /messages* mcp-server:8050
+  reverse_proxy /sse* mcp-server:8050
+
+  # SPA Fallback for React
+  @notAPI {
+    not path /query* /check-json-files* /docs* /messages* /sse*
+  }
+  handle @notAPI {
+    try_files {path} /index.html
+  }
+
+  log {
+    output stdout
+    format console
+  }
 }

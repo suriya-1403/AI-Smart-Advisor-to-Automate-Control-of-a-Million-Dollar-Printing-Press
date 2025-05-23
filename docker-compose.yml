@@ -1,15 +1,16 @@
 services:
   # MCP Server component
   mcp-server:
-    image: python:3.10-slim
+    image: ghcr.io/astral-sh/uv:python3.10-bookworm-slim
     working_dir: /app
-    # First install pip packages, then run with PYTHONPATH set
     command: >
-      bash -c "pip install -r requirements.txt &&
-              pip install -e . &&
-              PYTHONPATH=/app python -m mcp_server.server"
+      bash -c "uv pip install --system -r requirements.txt &&
+              PYTHONPATH=/app uv run -m mcp_server.server.server"
     volumes:
-      - ./:/app
+      - ./mcp_server:/app/mcp_server
+      - ./requirements.txt:/app/requirements.txt
+    env_file:
+      - .env
     environment:
       - HOST=0.0.0.0
       - PORT=8050
@@ -23,15 +24,16 @@ services:
 
   # Web API component
   web-api:
-    image: python:3.10-slim
+    image: ghcr.io/astral-sh/uv:python3.10-bookworm-slim
     working_dir: /app
-    # First install pip packages, then run with PYTHONPATH set
     command: >
-      bash -c "pip install -r requirements.txt &&
-              pip install -e . &&
-              PYTHONPATH=/app python -m mcp_server.mainWeb"
+      bash -c "uv pip install --system -r requirements.txt &&
+              PYTHONPATH=/app uv run -m mcp_server.mainWeb"
     volumes:
-      - ./:/app
+      - ./mcp_server:/app/mcp_server
+      - ./requirements.txt:/app/requirements.txt
+    env_file:
+      - .env
     environment:
       - HOST=0.0.0.0
       - PORT=8000
@@ -46,10 +48,9 @@ services:
 
   # Frontend serving using Nginx
   frontend:
-    image: nginx:alpine
-    volumes:
-      - ./Frontend/build:/usr/share/nginx/html
-      - ./nginx-frontend.conf:/etc/nginx/conf.d/default.conf
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
     networks:
       - mcp-network
     expose:
@@ -61,15 +62,16 @@ services:
     image: caddy:alpine
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./Frontend/build:/usr/share/nginx/html
     ports:
       - "8080:8080"
     networks:
       - mcp-network
-    restart: always
     depends_on:
       - mcp-server
       - web-api
       - frontend
+    restart: always
 
 networks:
   mcp-network:

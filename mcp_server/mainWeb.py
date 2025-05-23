@@ -49,7 +49,7 @@ app.add_middleware(
 async def check_json_files():
     """Check if JSON files exist in the documents directory."""
     try:
-        documents_dir = Path("/Users/suriya/Documents/Github/AI-Smart-Advisor-to-Automate-Control-of-a-Million-Dollar-Printing-Press/mcp_server/data/documents")
+        documents_dir = Path("/app/mcp_server/data/documents")
         if not documents_dir.exists():
             return {"hasJsonFiles": False}
         
@@ -72,8 +72,9 @@ async def process_query(query: str):
         Dictionary with processing results.
     """
     try:
+        SSE_URL = f"http://{os.getenv('SSE_HOST')}:{os.getenv('SSE_PORT')}/sse"
         # Connect to the MCP server
-        async with sse_client(f"http://{SERVER_HOST}:{SERVER_PORT}/sse") as (r, w):
+        async with sse_client(SSE_URL) as (r, w):
             try:
                 async with ClientSession(r, w) as session:
                     try:
