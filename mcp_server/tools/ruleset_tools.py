@@ -1176,7 +1176,7 @@ Given the following user query, extract the following fields into a JSON object 
 - moisturizer model
 - surfactant
 
-if any of the values are not present, use these defaults:
+If any of the values are not present, use these defaults:
 "ink coverage": "25",
 "optical density": "90",
 "media weight": "50",
@@ -1196,17 +1196,24 @@ Extracted JSON (only the object, nothing else):
     )
 
     # Step 2: Call the LLM
+    #llm = OllamaLLM(model=model_name)
     llm = ChatGroq(model="gemma2-9b-it", api_key=GROQ_API)
     raw = llm.invoke(prompt.format(query=query))
 
-    # Step 3: Extract JSON from response
+    # Step 3: Extract JSON object from raw output
     match = re.search(r"\{.*\}", raw, re.DOTALL)
     if not match:
         raise ValueError("❌ Could not extract JSON from LLM output.")
 
-    extracted_json = json.loads(match.group(0))
+    json_str = match.group(0)
+    try:
+        extracted_json = json.loads(json_str)
+    except Exception as e:
+        print("❌ Failed to parse JSON. Raw output:")
+        print(raw)
+        raise e
 
-    # Step 4: Ensure all required keys are present
+    # Step 4: Validate and fill missing/null fields with defaults
     default_values = {
         "ink coverage": "25",
         "optical density": "90",
@@ -1220,8 +1227,16 @@ Extracted JSON (only the object, nothing else):
         "media finish": "smooth"
     }
 
-    complete_json = {k: extracted_json.get(k, default_values[k]) for k in default_values}
+    # Normalize and auto-fill nulls
+    complete_json = {}
+    for key in default_values:
+        val = extracted_json.get(key)
+        if val in [None, "null", "None", ""]:
+            val = default_values[key]
+        complete_json[key] = val
+
     return complete_json
+
 
 
 
