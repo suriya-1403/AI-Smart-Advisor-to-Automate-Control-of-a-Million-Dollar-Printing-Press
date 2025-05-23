@@ -56,10 +56,45 @@ function parseDocumentSearch(rawText) {
   return { foundLine, documents, summary };
 }
 
+// Full list of suggestion questions
+const allSuggestions = [
+  { title: 'Find prints', description: 'with heavy ink coverage on glossy media' },
+  { title: 'Show me documents', description: 'about T250 printers using 75GSM paper' },
+  { title: 'Get all reports', description: 'from the Las Vegas expo' },
+  { title: 'Which documents mention', description: 'coated inkjet with 266 GSM?' },
+  { title: 'I want to print on', description: 'uncoated eggshell paper with an ink coverage of 96% and optical density of 88%. The paper weight is 372 GSM. Use the Performance HDK print mode, with a 1-Zone dryer, Eltex moisturizer, Silicon surfactant, and EMT winders give final values.' },
+  { title: 'Give target press speed and target dryer power', description: `I'm working with coated glossy media, ink coverage of 45%, and optical density of 60%. The weight is 70 GSM, and the print mode is Quality. The dryer is set to DEM, using Weko moisturizer, Water as surfactant, and Hunkeler winders.` },
+  { title: 'The job uses coated inkjet paper', description: 'with a smooth finish, ink coverage at 96%, optical density 97%, and media weight 385 GSM. We\'re printing in Performance mode, with a 3-Zone dryer, Eltex moisturizer, Silicon surfactant, and EMT winders give target dryer power and other values.' },
+  { title: 'Give final values for printing', description: 'on uncoated satin paper (weight: 210 GSM) with 50% ink and 85% density, in Performance mode, using Default dryer, Eltex, Water surfactant, and EMT winders.' },
+  { title: 'Tell me about', description: 'event 71' },
+  { title: 'What happened in', description: 'event 42?' },
+  { title: 'Give me details about', description: 'event_id 128' },
+  { title: 'Show me information about', description: 'the Vegas expo event' },
+  { title: 'Describe', description: 'event 205' },
+  { title: 'What were the results of', description: 'event 89?' },
+  { title: 'Tell me what occurred during', description: 'event 156' },
+  { title: 'Can you explain', description: 'the difference between coated and uncoated media?' },
+  { title: 'How does heavy ink coverage affect', description: 'media requirements?' },
+  { title: `What's the relationship between`, description: 'ink coverage and media weight?' },
+  { title: 'Why would someone choose', description: 'silk finish over matte?' },
+  { title: 'How do', description: 'dryer configurations work?' },
+  { title: 'What are the benefits of', description: 'moisturizers in printing?' },
+  { title: 'How does media weight impact', description: 'print quality?' },
+];
+
+// Helper to get N random suggestions
+function getRandomSuggestions(arr, n) {
+  const shuffled = arr.slice().sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, n);
+}
+
 const ChatBot = () => {
   const [inputMessage, setInputMessage] = useState('');
   const [messages, setMessages] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
+  const [hasJsonFiles, setHasJsonFiles] = useState(false);
+  const [dbCheckStatus, setDbCheckStatus] = useState('loading'); // 'loading' | 'success' | 'error'
+  const [showGreenDb, setShowGreenDb] = useState(false);
   const messagesEndRef = useRef(null);
   const chatMessagesRef = useRef(null);
   const textareaRef = useRef(null);
@@ -68,28 +103,47 @@ const ChatBot = () => {
   const [summary, setSummary] = useState([]);
   const [foundLine, setFoundLine] = useState('');
   const requestStartTimeRef = useRef(null);
+  const [showDbModal, setShowDbModal] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [homeSuggestions, setHomeSuggestions] = useState(() => getRandomSuggestions(allSuggestions, 4));
+  const [chatSuggestions, setChatSuggestions] = useState(() => getRandomSuggestions(allSuggestions, 2));
 
   // API endpoint configuration
   const API_URL = 'http://0.0.0.0:8000/query';
 
-  const suggestions = [
-    {
-      title: 'Find documents',
-      description: 'with heavy ink coverage on coated media around 220 gsm'
-    },
-    {
-      title: 'What\'s the recommended dryer power',
-      description: 'and press speed for a coated glossy sheet with 50 GSM, 57% ink coverage, and an optical density of 96? Use the Quality mode.'
-    },
-    {
-      title: 'Tell me about',
-      description: 'event id 71?'
-    },
-    {
-      title: 'Can you explain',
-      description: 'the difference between coated and uncoated media?'
+  // Check for JSON files on component mount
+  useEffect(() => {
+    setDbCheckStatus('loading');
+    setShowGreenDb(false);
+    const checkJsonFiles = async () => {
+      try {
+        const response = await fetch('http://0.0.0.0:8000/check-json-files');
+        const data = await response.json();
+        if (data.hasJsonFiles) {
+          setHasJsonFiles(true);
+          setDbCheckStatus('success');
+          setShowGreenDb(true);
+          setTimeout(() => setShowGreenDb(false), 1500); // fade out after 1.5s
+        } else {
+          setHasJsonFiles(false);
+          setDbCheckStatus('error');
+        }
+      } catch (error) {
+        console.error('Error checking JSON files:', error);
+        setHasJsonFiles(false);
+        setDbCheckStatus('error');
+      }
+    };
+    checkJsonFiles();
+  }, []);
+
+  // When a message is sent, pick new chat suggestions
+  useEffect(() => {
+    if (messages.length > 0 && messages.some(m => m.type === 'bot')) {
+      setChatSuggestions(getRandomSuggestions(allSuggestions, 2));
     }
-  ];
+  }, [messages]);
 
   const scrollToBottom = () => {
     if (messagesEndRef.current) {
@@ -320,6 +374,34 @@ ${data.result.final_answer || data.result.knowledge_response || 'Knowledge respo
     );
   }
 
+  // Drag and drop handlers
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(true);
+  };
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+  };
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type === 'application/pdf');
+    setUploadedFiles(prev => [...prev, ...files]);
+  };
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files).filter(f => f.type === 'application/pdf');
+    setUploadedFiles(prev => [...prev, ...files]);
+  };
+  const closeModal = () => {
+    setShowDbModal(false);
+    setDragActive(false);
+    setUploadedFiles([]);
+  };
+
   return (
     <div className={`chatbot-container ${messages.length > 0 ? 'chat-active' : ''}`}>
       <div className={`gradient-balls ${messages.length > 0 ? 'chat' : 'home'} ${isTyping ? 'thinking' : ''}`}>
@@ -342,9 +424,22 @@ ${data.result.final_answer || data.result.knowledge_response || 'Knowledge respo
       <div className="chat-content">
         {/* Suggestions box on first page (no messages) */}
         {messages.length === 0 && (
-          <div className="suggestions-container">
+          <div
+            className="suggestions-container"
+            style={{
+              position: 'fixed',
+              left: 0,
+              right: 0,
+              bottom: hasJsonFiles ? '5.5rem' : '7.5rem',
+              zIndex: 9,
+              background: 'linear-gradient(to bottom, rgba(0,0,0,0.7), #000000 90%)',
+              maxWidth: '48rem',
+              margin: '0 auto',
+              paddingBottom: '0.5rem'
+            }}
+          >
             <div className="suggestions-grid">
-              {suggestions.map((suggestion, index) => (
+              {homeSuggestions.map((suggestion, index) => (
                 <button
                   key={index}
                   className="suggestion-card"
@@ -412,11 +507,23 @@ ${data.result.final_answer || data.result.knowledge_response || 'Knowledge respo
             <div ref={messagesEndRef} />
           </div>
         )}
-        {/* Suggestions box only after first bot message and not while thinking */}
         {messages.length > 0 && messages.some(m => m.type === 'bot') && !isTyping && (
-          <div className="suggestions-container" style={{ position: 'fixed', left: 0, right: 0, bottom: '5.5rem', zIndex: 9, background: 'linear-gradient(to bottom, rgba(0,0,0,0.7), #000000 90%)', maxWidth: '48rem', margin: '0 auto', paddingBottom: '0.5rem' }}>
+          <div
+            className="suggestions-container"
+            style={{
+              position: 'fixed',
+              left: 0,
+              right: 0,
+              bottom: hasJsonFiles ? '5.5rem' : '7.5rem',
+              zIndex: 9,
+              background: 'linear-gradient(to bottom, rgba(0,0,0,0.7), #000000 90%)',
+              maxWidth: '48rem',
+              margin: '0 auto',
+              paddingBottom: '0.5rem'
+            }}
+          >
             <div className="suggestions-grid">
-              {suggestions.slice(0, 2).map((suggestion, index) => (
+              {chatSuggestions.map((suggestion, index) => (
                 <button
                   key={index}
                   className="suggestion-card"
@@ -431,16 +538,49 @@ ${data.result.final_answer || data.result.knowledge_response || 'Knowledge respo
         )}
         <div className="input-form-container">
           <form onSubmit={handleSubmit} className="input-form">
-            <textarea
-              ref={textareaRef}
-              rows={1}
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Send a message..."
-              className="chat-input"
-              aria-label="Chat input"
-            />
+            <div className="input-wrapper">
+              {/* Database status icon/emoji */}
+              {dbCheckStatus === 'loading' && (
+                <span className="db-status-emoji" title="Checking database...">⏳</span>
+              )}
+              {dbCheckStatus === 'success' && showGreenDb && (
+                <span className="database-icon-button has-files fade-out" title="Database loaded!">
+                  <svg viewBox="0 0 24 24" width="24" height="24">
+                    <path fill="currentColor" d="M12 2C6.48 2 2 4.48 2 7.5v9C2 19.52 6.48 22 12 22s10-2.48 10-5.5v-9C22 4.48 17.52 2 12 2zm0 2c4.42 0 8 1.79 8 3.5S16.42 11 12 11s-8-1.79-8-3.5S7.58 4 12 4zm0 14c-4.42 0-8-1.79-8-3.5v-2.5c2.84 1.67 6.42 2.5 8 2.5s5.16-.83 8-2.5v2.5c0 1.71-3.58 3.5-8 3.5zm0-7c-4.42 0-8-1.79-8-3.5v-2.5c2.84 1.67 6.42 2.5 8 2.5s5.16-.83 8-2.5v2.5c0 1.71-3.58 3.5-8 3.5z"/>
+                  </svg>
+                </span>
+              )}
+              {dbCheckStatus === 'error' && (
+                <button
+                  type="button"
+                  className={`database-icon-button no-files`}
+                  tabIndex={-1}
+                  aria-label="Database not loaded"
+                  onClick={() => setShowDbModal(true)}
+                >
+                  <svg viewBox="0 0 24 24" width="24" height="24">
+                    <path fill="currentColor" d="M12 2C6.48 2 2 4.48 2 7.5v9C2 19.52 6.48 22 12 22s10-2.48 10-5.5v-9C22 4.48 17.52 2 12 2zm0 2c4.42 0 8 1.79 8 3.5S16.42 11 12 11s-8-1.79-8-3.5S7.58 4 12 4zm0 14c-4.42 0-8-1.79-8-3.5v-2.5c2.84 1.67 6.42 2.5 8 2.5s5.16-.83 8-2.5v2.5c0 1.71-3.58 3.5-8 3.5zm0-7c-4.42 0-8-1.79-8-3.5v-2.5c2.84 1.67 6.42 2.5 8 2.5s5.16-.83 8-2.5v2.5c0 1.71-3.58 3.5-8 3.5z"/>
+                  </svg>
+                </button>
+              )}
+              <textarea
+                ref={textareaRef}
+                rows={1}
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Send a message..."
+                className="chat-input"
+                aria-label="Chat input"
+                style={{
+                  paddingLeft:
+                    dbCheckStatus === 'loading' || (dbCheckStatus === 'success' && showGreenDb) || dbCheckStatus === 'error'
+                      ? '1.5rem'
+                      : '1rem',
+                  transition: 'padding-left 0.6s cubic-bezier(0.22, 1, 0.36, 1)'
+                }}
+              />
+            </div>
             <div className="input-buttons">
               <button
                 type="submit"
@@ -454,8 +594,52 @@ ${data.result.final_answer || data.result.knowledge_response || 'Knowledge respo
               </button>
             </div>
           </form>
+          {!hasJsonFiles && (
+            <div className="dataset-warning">
+              <svg viewBox="0 0 24 24" width="16" height="16" className="warning-icon">
+                <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+              </svg>
+              <span>Dataset is not loaded - Please ensure JSON files are present in the data directory</span>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Drag-and-drop DB modal */}
+      {showDbModal && (
+        <div className="db-modal-overlay" onClick={closeModal}>
+          <div className="db-modal" onClick={e => e.stopPropagation()}>
+            <button className="db-modal-close" onClick={closeModal}>&times;</button>
+            <h2>Upload PDF Files</h2>
+            <div
+              className={`db-drop-area${dragActive ? ' drag-active' : ''}`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              <p>Drag & drop PDF files here, or <label htmlFor="db-file-input" className="db-file-label">browse</label></p>
+              <input
+                id="db-file-input"
+                type="file"
+                accept="application/pdf"
+                multiple
+                style={{ display: 'none' }}
+                onChange={handleFileChange}
+              />
+            </div>
+            {uploadedFiles.length > 0 && (
+              <div className="db-uploaded-list">
+                <h4>Selected files:</h4>
+                <ul>
+                  {uploadedFiles.map((file, idx) => (
+                    <li key={idx}>{file.name}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

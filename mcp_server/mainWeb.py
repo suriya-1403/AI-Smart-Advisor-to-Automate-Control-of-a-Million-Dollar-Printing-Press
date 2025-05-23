@@ -1,5 +1,7 @@
 import json
 import traceback
+import os
+from pathlib import Path
 
 import uvicorn
 from fastapi import Body, FastAPI
@@ -42,6 +44,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Add new endpoint to check for JSON files
+@app.get("/check-json-files")
+async def check_json_files():
+    """Check if JSON files exist in the documents directory."""
+    try:
+        documents_dir = Path("/Users/suriya/Documents/Github/AI-Smart-Advisor-to-Automate-Control-of-a-Million-Dollar-Printing-Press/mcp_server/data/documents")
+        if not documents_dir.exists():
+            return {"hasJsonFiles": False}
+        
+        json_files = list(documents_dir.glob("*.json"))
+        return {"hasJsonFiles": len(json_files) > 0}
+    except Exception as e:
+        print(f"Error checking JSON files: {str(e)}")
+        print(traceback.format_exc())
+        return {"hasJsonFiles": False}
 
 # Modified process_query function with better error handling
 async def process_query(query: str):
