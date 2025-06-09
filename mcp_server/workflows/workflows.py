@@ -11,6 +11,7 @@ from langsmith import traceable
 from typing_extensions import TypedDict
 
 from mcp_server.config import GROQ_API, LLM_MODEL
+
 # from mcp_server.eventRetrival_tools import extract_event_identifier, get_document_chunks_by_event_id
 # Initialize LLM
 # llm = OllamaLLM(model=LLM_MODEL)
@@ -104,6 +105,7 @@ class RulesetState(TypedDict):
     explanation: str
     session: object  # MCP ClientSession
 
+
 @traceable(name="RulesetEvaluationWorkflow")
 def create_ruleset_workflow(callbacks=None):
     """
@@ -152,25 +154,26 @@ def create_ruleset_workflow(callbacks=None):
         raw_text = result.content[0].text
         extracted_explanation = ""
         if 'content="' in raw_text:
-            extracted_explanation = raw_text.split('content="', 1)[1].split('"', 1)[0].replace("\\n", "\n")
+            extracted_explanation = (
+                raw_text.split('content="', 1)[1].split('"', 1)[0].replace("\\n", "\n")
+            )
 
         try:
             parsed = json.loads(raw_text)
             return {
                 "evaluation": {
                     "report": parsed.get("report", ""),
-                    "llm_insights": parsed.get("llm_insights", "")
+                    "llm_insights": parsed.get("llm_insights", ""),
                 }
             }
         except Exception:
             # Fallback to manually extract `report` and `llm_insights`
             return {
                 "evaluation": {
-                    "report": raw_text.split('## Explanation')[0].strip(),
-                    "llm_insights": extracted_explanation.strip()
+                    "report": raw_text.split("## Explanation")[0].strip(),
+                    "llm_insights": extracted_explanation.strip(),
                 }
             }
-
 
     async def explain_results(state: RulesetState):
         """
@@ -184,10 +187,7 @@ def create_ruleset_workflow(callbacks=None):
         else:
             explanation_text = str(raw_insight)
 
-        return {
-            "explanation": evaluation.get("llm_insights", "").strip()
-        }
-
+        return {"explanation": evaluation.get("llm_insights", "").strip()}
 
     workflow = StateGraph(RulesetState)
     workflow.add_node("format_parameters", format_parameters)
@@ -209,16 +209,18 @@ class EventInfoState(TypedDict):
     """
     State type for event information workflow.
     """
+
     query: str
     event_identifier: str
     summary: str
     session: object
 
+
 @traceable(name="EventInformationWorkflow")
 def create_event_workflow(callbacks=None):
     async def extract_event_id(state: EventInfoState):
         result = await state["session"].call_tool(
-        "extract_event_identifier", {"query": state["query"]}
+            "extract_event_identifier", {"query": state["query"]}
         )
 
         event_id = result.content[0].text.strip()
@@ -233,7 +235,7 @@ def create_event_workflow(callbacks=None):
             "get_event_summary", {"query": state["query"]}
         )
         return {"summary": result.content[0].text}
-    
+
     async def generate_summary(state: EventInfoState):
         prompt = f"""
 Summarize the following print event report for event ID {state['event_identifier']}.
@@ -317,7 +319,7 @@ Text:
     #     Structure the event data for analysis.
     #     """
     #     combined_data = state["found_documents"]
-        
+
     #     # Include PDF content if available
     #     if state["pdf_content"] and "PDF Content for Event" in state["pdf_content"]:
     #         prompt = (
@@ -327,9 +329,9 @@ Text:
     #         )
     #         result = await llm.ainvoke([prompt, state["pdf_content"]])
     #         pdf_insights = str(result.content) if hasattr(result, "content") else str(result)
-            
+
     #         combined_data += f"\n\nPDF Key Insights:\n{pdf_insights}"
-            
+
     #     prompt = (
     #         "Structure the following event information into key categories: "
     #         "event metadata, printing specifications, equipment settings, performance data, "
@@ -378,6 +380,7 @@ Text:
     # if callbacks:
     #     compiled.callbacks = callbacks
     # return compiled
+
 
 class GeneralKnowledgeState(TypedDict):
     """

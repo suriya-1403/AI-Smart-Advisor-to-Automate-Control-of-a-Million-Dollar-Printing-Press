@@ -2,23 +2,26 @@
 Tools for ruleset evaluation.
 """
 
-import os
-import pandas as pd
-from typing import Dict, Any, List, Optional, Tuple
-from dataclasses import dataclass
 import json
+import os
+import re
 import warnings
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
+
+import numpy as np
+import pandas as pd
 from bs4 import MarkupResemblesLocatorWarning
-# from input_extracter import extract_inputs_from_natural_query 
-from mcp.server.fastmcp import FastMCP
+from langchain.prompts import PromptTemplate
+
 # from langchain_ollama import OllamaLLM
 from langchain_groq import ChatGroq
 
-from langchain.prompts import PromptTemplate
-import numpy as np
-import re
-import json
-from mcp_server.config import LLM_MODEL, GROQ_API
+# from input_extracter import extract_inputs_from_natural_query
+from mcp.server.fastmcp import FastMCP
+
+from mcp_server.config import GROQ_API, LLM_MODEL
+
 
 def convert_numpy(obj):
     if isinstance(obj, dict):
@@ -40,30 +43,34 @@ warnings.filterwarnings("ignore", category=MarkupResemblesLocatorWarning)
 # Configuration Agent System
 # --------------------------
 
+
 @dataclass
 class AgentResult:
     """Stores the result of an agent's retrieval operation"""
+
     name: str
     value: Any
     confidence: float = 1.0  # 0.0-1.0 scale
     source: Optional[str] = None
     details: Optional[Dict] = None
-    
+
     def __str__(self) -> str:
         return f"{self.name}: {self.value} (confidence: {self.confidence:.2f})"
 
 
 class BaseAgent:
     """Base class for all retrieval agents"""
-    
+
     def __init__(self, name: str, ruleset_folder: str):
         self.name = name
         self.ruleset_folder = ruleset_folder
-        
-    def retrieve(self, conditions: Dict[str, Any], lookup_values: Dict[str, Any]) -> AgentResult:
+
+    def retrieve(
+        self, conditions: Dict[str, Any], lookup_values: Dict[str, Any]
+    ) -> AgentResult:
         """Main method to be implemented by subclasses"""
         raise NotImplementedError("Subclasses must implement retrieve()")
-    
+
     # def _load_table(self, filename: str) -> pd.DataFrame:
     #     path = os.path.join(self.ruleset_folder, filename)
     #     try:
@@ -91,24 +98,30 @@ class BaseAgent:
             return pd.DataFrame()
 
 
-
 class InkCoverageClassAgent(BaseAgent):
     """Agent for determining ink coverage class"""
-    
+
     def __init__(self, ruleset_folder: str):
         super().__init__("ink_coverage_class", ruleset_folder)
         self.table_filename = "Ink_coverage-converted.html"
-    
-    def retrieve(self, conditions: Dict[str, Any], lookup_values: Dict[str, Any]) -> AgentResult:
+
+    def retrieve(
+        self, conditions: Dict[str, Any], lookup_values: Dict[str, Any]
+    ) -> AgentResult:
         df = self._load_table(self.table_filename)
         if df.empty:
-            return AgentResult(name="ink coverage class", value="medium", confidence=0.1, 
-                             source="default", details={"error": "Failed to load table"})
-        
+            return AgentResult(
+                name="ink coverage class",
+                value="medium",
+                confidence=0.1,
+                source="default",
+                details={"error": "Failed to load table"},
+            )
+
         try:
             ink_percent = float(conditions.get("ink coverage", 25))
             density_percent = float(conditions.get("optical density", 90))
-            
+
             for idx, row in df.iterrows():
                 try:
                     ink_min = float(row.iloc[0])
@@ -117,52 +130,69 @@ class InkCoverageClassAgent(BaseAgent):
                     density_max = float(row.iloc[3])
                     coverage_class = row.iloc[4]
 
-                    if ink_min <= ink_percent <= ink_max and density_min <= density_percent <= density_max:
+                    if (
+                        ink_min <= ink_percent <= ink_max
+                        and density_min <= density_percent <= density_max
+                    ):
                         return AgentResult(
-                            name="ink coverage class", 
-                            value=coverage_class, 
+                            name="ink coverage class",
+                            value=coverage_class,
                             confidence=0.9,
                             source=self.table_filename,
-                            details={"ink_percent": ink_percent, "density_percent": density_percent}
+                            details={
+                                "ink_percent": ink_percent,
+                                "density_percent": density_percent,
+                            },
                         )
                 except Exception as e:
                     continue
-                    
+
             # No match found
             return AgentResult(
-                name="ink coverage class", 
-                value="medium", 
+                name="ink coverage class",
+                value="medium",
                 confidence=0.3,
                 source="default",
-                details={"reason": "No matching rule found", "ink_percent": ink_percent, "density_percent": density_percent}
+                details={
+                    "reason": "No matching rule found",
+                    "ink_percent": ink_percent,
+                    "density_percent": density_percent,
+                },
             )
-            
+
         except Exception as e:
             return AgentResult(
-                name="ink coverage class", 
-                value="medium", 
+                name="ink coverage class",
+                value="medium",
                 confidence=0.1,
                 source="default",
-                details={"error": str(e)}
+                details={"error": str(e)},
             )
 
 
 class MediaWeightClassAgent(BaseAgent):
     """Agent for determining media weight class"""
-    
+
     def __init__(self, ruleset_folder: str):
         super().__init__("media_weight_class", ruleset_folder)
         self.table_filename = "mediaweight_class.html"
-    
-    def retrieve(self, conditions: Dict[str, Any], lookup_values: Dict[str, Any]) -> AgentResult:
+
+    def retrieve(
+        self, conditions: Dict[str, Any], lookup_values: Dict[str, Any]
+    ) -> AgentResult:
         df = self._load_table(self.table_filename)
         if df.empty:
-            return AgentResult(name="media weight class", value="medium", confidence=0.1, 
-                             source="default", details={"error": "Failed to load table"})
-        
+            return AgentResult(
+                name="media weight class",
+                value="medium",
+                confidence=0.1,
+                source="default",
+                details={"error": "Failed to load table"},
+            )
+
         try:
             weight_gsm = float(conditions.get("media weight", 50))
-            
+
             for idx, row in df.iterrows():
                 try:
                     weight_min = float(row.iloc[0])
@@ -171,111 +201,124 @@ class MediaWeightClassAgent(BaseAgent):
 
                     if weight_min <= weight_gsm <= weight_max:
                         return AgentResult(
-                            name="media weight class", 
-                            value=weight_class, 
+                            name="media weight class",
+                            value=weight_class,
                             confidence=0.9,
                             source=self.table_filename,
-                            details={"weight_gsm": weight_gsm}
+                            details={"weight_gsm": weight_gsm},
                         )
                 except Exception:
                     continue
-                    
+
             # No match found
             return AgentResult(
-                name="media weight class", 
-                value="medium", 
+                name="media weight class",
+                value="medium",
                 confidence=0.3,
                 source="default",
-                details={"reason": "No matching rule found", "weight_gsm": weight_gsm}
+                details={"reason": "No matching rule found", "weight_gsm": weight_gsm},
             )
-            
+
         except Exception as e:
             return AgentResult(
-                name="media weight class", 
-                value="medium", 
+                name="media weight class",
+                value="medium",
                 confidence=0.1,
                 source="default",
-                details={"error": str(e)}
+                details={"error": str(e)},
             )
 
 
 class MediaTreatmentClassAgent(BaseAgent):
     """Agent for determining media treatment class"""
-    
+
     def __init__(self, ruleset_folder: str):
         super().__init__("media_treatment_class", ruleset_folder)
         self.table_filename = "mediatreatment_class.html"
-    
-    def retrieve(self, conditions: Dict[str, Any], lookup_values: Dict[str, Any]) -> AgentResult:
+
+    def retrieve(
+        self, conditions: Dict[str, Any], lookup_values: Dict[str, Any]
+    ) -> AgentResult:
         df = self._load_table(self.table_filename)
         if df.empty:
-            return AgentResult(name="media treatment class", value="standard", confidence=0.1, 
-                             source="default", details={"error": "Failed to load table"})
-        
+            return AgentResult(
+                name="media treatment class",
+                value="standard",
+                confidence=0.1,
+                source="default",
+                details={"error": "Failed to load table"},
+            )
+
         try:
             coating = conditions.get("media coating", "uncoated").lower()
             finish = conditions.get("media finish", "").lower()
-            
+
             # Clean column names to ensure case consistency
             df.columns = df.columns.str.strip().str.lower()
-            
+
             filtered_df = df[
-                (df['media coating'].str.lower() == coating) &
-                (df['media finish'].str.lower() == finish if finish else True)
+                (df["media coating"].str.lower() == coating)
+                & (df["media finish"].str.lower() == finish if finish else True)
             ]
-            
+
             if not filtered_df.empty:
                 treatment_class = filtered_df.iloc[0]["media treatment class"]
                 return AgentResult(
-                    name="media treatment class", 
-                    value=treatment_class, 
+                    name="media treatment class",
+                    value=treatment_class,
                     confidence=0.9,
                     source=self.table_filename,
-                    details={"coating": coating, "finish": finish}
+                    details={"coating": coating, "finish": finish},
                 )
-            
+
             # Try with just coating if we have no match
             if finish:
-                filtered_df = df[df['media coating'].str.lower() == coating]
+                filtered_df = df[df["media coating"].str.lower() == coating]
                 if not filtered_df.empty:
                     treatment_class = filtered_df.iloc[0]["media treatment class"]
                     return AgentResult(
-                        name="media treatment class", 
-                        value=treatment_class, 
+                        name="media treatment class",
+                        value=treatment_class,
                         confidence=0.7,
                         source=self.table_filename,
-                        details={"coating": coating, "finish_missing": True}
+                        details={"coating": coating, "finish_missing": True},
                     )
-            
+
             # Default fallback
             return AgentResult(
-                name="media treatment class", 
-                value="standard", 
+                name="media treatment class",
+                value="standard",
                 confidence=0.3,
                 source="default",
-                details={"reason": "No matching rule found", "coating": coating, "finish": finish}
+                details={
+                    "reason": "No matching rule found",
+                    "coating": coating,
+                    "finish": finish,
+                },
             )
-            
+
         except Exception as e:
             return AgentResult(
-                name="media treatment class", 
-                value="standard", 
+                name="media treatment class",
+                value="standard",
                 confidence=0.1,
                 source="default",
-                details={"error": str(e)}
+                details={"error": str(e)},
             )
 
 
 class NominalDryerPowerAgent(BaseAgent):
     """Agent for determining nominal dryer power"""
-    
+
     def __init__(self, ruleset_folder: str):
         super().__init__("nominal_dryer_power", ruleset_folder)
-    
-    def retrieve(self, conditions: Dict[str, Any], lookup_values: Dict[str, Any]) -> AgentResult:
+
+    def retrieve(
+        self, conditions: Dict[str, Any], lookup_values: Dict[str, Any]
+    ) -> AgentResult:
         # Determine table filename based on ink_coverage_class
         ink_class = lookup_values.get("ink coverage class", "medium").lower().strip()
-        
+
         if ink_class == "light":
             table_filename = "Nominal_Dryer_Power_InkCoverageClass_Light.html"
         elif ink_class == "medium":
@@ -284,66 +327,86 @@ class NominalDryerPowerAgent(BaseAgent):
             table_filename = "Nominal_Dryer_Power_InkCoverageClass_Heavy.html"
         else:
             table_filename = "Nominal_Dryer_Power_InkCoverageClass_Medium.html"
-            
+
         df = self._load_table(table_filename)
         if df.empty:
-            return AgentResult(name="nominal dryer power", value="50%", confidence=0.1, 
-                             source="default", details={"error": f"Failed to load table {table_filename}"})
-        
+            return AgentResult(
+                name="nominal dryer power",
+                value="50%",
+                confidence=0.1,
+                source="default",
+                details={"error": f"Failed to load table {table_filename}"},
+            )
+
         try:
             # Apply relevant filters based on lookup values
             filtered_df = df.copy()
-            
+
             for col, val in lookup_values.items():
                 col_lower = col.lower()
                 if col_lower in filtered_df.columns:
-                    filtered_df = filtered_df[filtered_df[col_lower].astype(str).str.lower() == val.lower()]
-            
+                    filtered_df = filtered_df[
+                        filtered_df[col_lower].astype(str).str.lower() == val.lower()
+                    ]
+
             # Extract dryer power value
             if not filtered_df.empty:
                 for col in filtered_df.columns:
                     if "dryer" in col:
                         dryer_power = filtered_df.iloc[0][col]
                         if isinstance(dryer_power, str):
-                            dryer_power = dryer_power.replace(" ", "").replace("-%", "%").replace("--", "-").strip()
-                        
+                            dryer_power = (
+                                dryer_power.replace(" ", "")
+                                .replace("-%", "%")
+                                .replace("--", "-")
+                                .strip()
+                            )
+
                         return AgentResult(
-                            name="nominal dryer power", 
-                            value=dryer_power, 
+                            name="nominal dryer power",
+                            value=dryer_power,
                             confidence=0.9,
                             source=table_filename,
-                            details={"applied_filters": {k: v for k, v in lookup_values.items() if k.lower() in filtered_df.columns}}
+                            details={
+                                "applied_filters": {
+                                    k: v
+                                    for k, v in lookup_values.items()
+                                    if k.lower() in filtered_df.columns
+                                }
+                            },
                         )
-            
+
             # No match found
             return AgentResult(
-                name="nominal dryer power", 
-                value="50%", 
+                name="nominal dryer power",
+                value="50%",
                 confidence=0.3,
                 source="default",
-                details={"reason": "No matching rule found", "table": table_filename}
+                details={"reason": "No matching rule found", "table": table_filename},
             )
-            
+
         except Exception as e:
             return AgentResult(
-                name="nominal dryer power", 
-                value="50%", 
+                name="nominal dryer power",
+                value="50%",
                 confidence=0.1,
                 source="default",
-                details={"error": str(e)}
+                details={"error": str(e)},
             )
 
 
 class NominalPressSpeedAgent(BaseAgent):
     """Agent for determining nominal press speed"""
-    
+
     def __init__(self, ruleset_folder: str):
         super().__init__("nominal_press_speed", ruleset_folder)
-    
-    def retrieve(self, conditions: Dict[str, Any], lookup_values: Dict[str, Any]) -> AgentResult:
+
+    def retrieve(
+        self, conditions: Dict[str, Any], lookup_values: Dict[str, Any]
+    ) -> AgentResult:
         # Determine table filename based on ink_coverage_class
         ink_class = lookup_values.get("ink coverage class", "medium").lower().strip()
-        
+
         if ink_class == "light":
             table_filename = "Nominal_Press_Speed_InkCoverageClass_Light.html"
         elif ink_class == "medium":
@@ -352,123 +415,149 @@ class NominalPressSpeedAgent(BaseAgent):
             table_filename = "Nominal_Press_Speed_InkCoverageClass_Heavy.html"
         else:
             table_filename = "Nominal_Press_Speed_InkCoverageClass_Medium.html"
-            
+
         df = self._load_table(table_filename)
         if df.empty:
-            return AgentResult(name="nominal press speed", value="85%-95%", confidence=0.1, 
-                             source="default", details={"error": f"Failed to load table {table_filename}"})
-        
+            return AgentResult(
+                name="nominal press speed",
+                value="85%-95%",
+                confidence=0.1,
+                source="default",
+                details={"error": f"Failed to load table {table_filename}"},
+            )
+
         try:
             # Apply relevant filters based on lookup values
             filtered_df = df.copy()
-            
+
             for col, val in lookup_values.items():
                 col_lower = col.lower()
                 if col_lower in filtered_df.columns:
-                    filtered_df = filtered_df[filtered_df[col_lower].astype(str).str.lower() == val.lower()]
-            
+                    filtered_df = filtered_df[
+                        filtered_df[col_lower].astype(str).str.lower() == val.lower()
+                    ]
+
             # Extract press speed value
             if not filtered_df.empty:
                 for col in filtered_df.columns:
                     if "speed" in col:
                         press_speed = filtered_df.iloc[0][col]
-                        
+
                         return AgentResult(
-                            name="nominal press speed", 
-                            value=press_speed, 
+                            name="nominal press speed",
+                            value=press_speed,
                             confidence=0.9,
                             source=table_filename,
-                            details={"applied_filters": {k: v for k, v in lookup_values.items() if k.lower() in filtered_df.columns}}
+                            details={
+                                "applied_filters": {
+                                    k: v
+                                    for k, v in lookup_values.items()
+                                    if k.lower() in filtered_df.columns
+                                }
+                            },
                         )
-            
+
             # No match found
             return AgentResult(
-                name="nominal press speed", 
-                value="85%-95%", 
+                name="nominal press speed",
+                value="85%-95%",
                 confidence=0.3,
                 source="default",
-                details={"reason": "No matching rule found", "table": table_filename}
+                details={"reason": "No matching rule found", "table": table_filename},
             )
-            
+
         except Exception as e:
             return AgentResult(
-                name="nominal press speed", 
-                value="85%-95%", 
+                name="nominal press speed",
+                value="85%-95%",
                 confidence=0.1,
                 source="default",
-                details={"error": str(e)}
+                details={"error": str(e)},
             )
 
 
 class MaxPressSpeedAgent(BaseAgent):
     """Agent for determining max press speed"""
-    
+
     def __init__(self, ruleset_folder: str):
         super().__init__("max_press_speed", ruleset_folder)
         self.table_filename = "Max_Press_Speed.html"
-    
-    def retrieve(self, conditions: Dict[str, Any], lookup_values: Dict[str, Any]) -> AgentResult:
+
+    def retrieve(
+        self, conditions: Dict[str, Any], lookup_values: Dict[str, Any]
+    ) -> AgentResult:
         df = self._load_table(self.table_filename)
         if df.empty:
-            return AgentResult(name="max press speed", value=100, confidence=0.1, 
-                             source="default", details={"error": "Failed to load table"})
-        
+            return AgentResult(
+                name="max press speed",
+                value=100,
+                confidence=0.1,
+                source="default",
+                details={"error": "Failed to load table"},
+            )
+
         try:
             # Get press quality mode
             mode = conditions.get("press quality", "performance").strip().lower()
-            
+
             for idx, row in df.iterrows():
                 row_mode = str(row.iloc[0]).strip().lower()
                 if row_mode == mode:
                     max_speed = row.iloc[1]
                     return AgentResult(
-                        name="max press speed", 
-                        value=max_speed, 
+                        name="max press speed",
+                        value=max_speed,
                         confidence=0.9,
                         source=self.table_filename,
-                        details={"mode": mode}
+                        details={"mode": mode},
                     )
-            
+
             # No match found
             return AgentResult(
-                name="max press speed", 
-                value=100, 
+                name="max press speed",
+                value=100,
                 confidence=0.3,
                 source="default",
-                details={"reason": "No matching rule found", "mode": mode}
+                details={"reason": "No matching rule found", "mode": mode},
             )
-            
+
         except Exception as e:
             return AgentResult(
-                name="max press speed", 
-                value=100, 
+                name="max press speed",
+                value=100,
                 confidence=0.1,
                 source="default",
-                details={"error": str(e)}
+                details={"error": str(e)},
             )
 
 
 class TargetPressSpeedAgent(BaseAgent):
     """Agent for calculating target press speed"""
-    
+
     def __init__(self, ruleset_folder: str):
         super().__init__("target_press_speed", ruleset_folder)
-    
-    def retrieve(self, conditions: Dict[str, Any], lookup_values: Dict[str, Any]) -> AgentResult:
+
+    def retrieve(
+        self, conditions: Dict[str, Any], lookup_values: Dict[str, Any]
+    ) -> AgentResult:
         try:
             # Get required inputs
             nominal_speed_range = lookup_values.get("nominal press speed", "85%-95%")
             max_speed = float(lookup_values.get("max press speed", 100))
-            dryer_config = conditions.get("dryer configuration", "default").strip().lower()
-            ink_class = lookup_values.get("ink coverage class", "medium").strip().lower()
-            
+            dryer_config = (
+                conditions.get("dryer configuration", "default").strip().lower()
+            )
+            ink_class = (
+                lookup_values.get("ink coverage class", "medium").strip().lower()
+            )
+
             # Define multipliers
             multipliers = {
                 "default": {"light": 0.63, "medium": 0.75, "heavy": 0.80},
                 "1-zone": {"light": 0.63, "medium": 0.75, "heavy": 0.80},
                 "3-zone": {"light": 1.40, "medium": 1.30, "heavy": 1.15},
             }
-            
+
             # Parse nominal range like "85%-95%"
             if isinstance(nominal_speed_range, str) and "%" in nominal_speed_range:
                 parts = nominal_speed_range.strip("%").split("-")
@@ -476,7 +565,7 @@ class TargetPressSpeedAgent(BaseAgent):
                 nominal_max = float(parts[1]) if len(parts) > 1 else nominal_min
             else:
                 nominal_min = nominal_max = float(nominal_speed_range)
-            
+
             # DEM and 2-Zone use nominal directly (bounded)
             if dryer_config in ["dem", "2-zone"]:
                 final_min = min(nominal_min, max_speed, 100)
@@ -491,12 +580,12 @@ class TargetPressSpeedAgent(BaseAgent):
                 multiplier = 0.75  # Medium multiplier as default
                 final_min = min(nominal_min * multiplier, max_speed, 100)
                 final_max = min(nominal_max * multiplier, max_speed, 100)
-            
+
             target_speed = f"{round(final_min)} - {round(final_max)}"
-            
+
             return AgentResult(
-                name="target press speed", 
-                value=target_speed, 
+                name="target press speed",
+                value=target_speed,
                 confidence=0.9,
                 source="computed",
                 details={
@@ -505,264 +594,284 @@ class TargetPressSpeedAgent(BaseAgent):
                     "max_speed": max_speed,
                     "dryer_config": dryer_config,
                     "ink_class": ink_class,
-                    "multiplier": multiplier
-                }
+                    "multiplier": multiplier,
+                },
             )
-            
+
         except Exception as e:
             return AgentResult(
-                name="target press speed", 
-                value="65 - 75", 
+                name="target press speed",
+                value="65 - 75",
                 confidence=0.1,
                 source="default",
-                details={"error": str(e)}
+                details={"error": str(e)},
             )
 
 
 class TargetDryerPowerAgent(BaseAgent):
     """Agent for determining target dryer power"""
-    
+
     def __init__(self, ruleset_folder: str):
         super().__init__("target_dryer_power", ruleset_folder)
         self.table_filename = "Target_Dryer_Power.html"
-    
-    def retrieve(self, conditions: Dict[str, Any], lookup_values: Dict[str, Any]) -> AgentResult:
+
+    def retrieve(
+        self, conditions: Dict[str, Any], lookup_values: Dict[str, Any]
+    ) -> AgentResult:
         df = self._load_table(self.table_filename)
         # df.columns = ['dryer configuration', 'ink coverage class', 'target dryer power']
         if not df.empty and df.shape[1] == 3:
-            df.columns = ['dryer configuration', 'ink coverage class', 'target dryer power']
+            df.columns = [
+                "dryer configuration",
+                "ink coverage class",
+                "target dryer power",
+            ]
         else:
-            return AgentResult(name="target dryer power", value="65%", confidence=0.1, 
-                               source="default", details={"error": "Table missing or columns malformed"})
+            return AgentResult(
+                name="target dryer power",
+                value="65%",
+                confidence=0.1,
+                source="default",
+                details={"error": "Table missing or columns malformed"},
+            )
 
-        
         if df.empty:
-            return AgentResult(name="target dryer power", value="65%", confidence=0.1, 
-                             source="default", details={"error": "Failed to load table"})
-        
+            return AgentResult(
+                name="target dryer power",
+                value="65%",
+                confidence=0.1,
+                source="default",
+                details={"error": "Failed to load table"},
+            )
+
         try:
-            dryer_config = conditions.get("dryer configuration", "default").strip().lower()
-            ink_class = lookup_values.get("ink coverage class", "medium").strip().lower()
+            dryer_config = (
+                conditions.get("dryer configuration", "default").strip().lower()
+            )
+            ink_class = (
+                lookup_values.get("ink coverage class", "medium").strip().lower()
+            )
             nominal_power = lookup_values.get("nominal dryer power", "50%")
-            
+
             # Filter the table
             filtered_df = df[
-                (df['dryer configuration'].str.lower() == dryer_config) &
-                (df['ink coverage class'].str.lower() == ink_class)
+                (df["dryer configuration"].str.lower() == dryer_config)
+                & (df["ink coverage class"].str.lower() == ink_class)
             ]
-            
+
             if not filtered_df.empty:
-                target_power = filtered_df.iloc[0]['target dryer power']
+                target_power = filtered_df.iloc[0]["target dryer power"]
                 return AgentResult(
-                    name="target dryer power", 
-                    value=target_power, 
+                    name="target dryer power",
+                    value=target_power,
                     confidence=0.9,
                     source=self.table_filename,
                     details={
                         "dryer_config": dryer_config,
                         "ink_class": ink_class,
-                        "nominal_power": nominal_power
-                    }
+                        "nominal_power": nominal_power,
+                    },
                 )
-                
+
             # No match found
             return AgentResult(
-                name="target dryer power", 
-                value="65%", 
+                name="target dryer power",
+                value="65%",
                 confidence=0.3,
                 source="default",
                 details={
-                    "reason": "No matching rule found", 
+                    "reason": "No matching rule found",
                     "dryer_config": dryer_config,
-                    "ink_class": ink_class
-                }
+                    "ink_class": ink_class,
+                },
             )
-            
+
         except Exception as e:
             return AgentResult(
-                name="target dryer power", 
-                value="65%", 
+                name="target dryer power",
+                value="65%",
                 confidence=0.1,
                 source="default",
-                details={"error": str(e)}
+                details={"error": str(e)},
             )
 
 
 class TensionsAgent(BaseAgent):
     """Agent for determining tension settings"""
-    
+
     def __init__(self, ruleset_folder: str):
         super().__init__("tensions", ruleset_folder)
         self.table_filename = "Tensions.html"
-    
-    def retrieve(self, conditions: Dict[str, Any], lookup_values: Dict[str, Any]) -> AgentResult:
+
+    def retrieve(
+        self, conditions: Dict[str, Any], lookup_values: Dict[str, Any]
+    ) -> AgentResult:
         df = self._load_table(self.table_filename)
         if df.empty:
             return AgentResult(
-                name="tensions", 
+                name="tensions",
                 value={
                     "dryer zone tension": "100",
                     "print zone tension": "100",
                     "unwinder zone tension": "100",
-                    "rewinder zone tension": "100"
-                }, 
-                confidence=0.1, 
-                source="default", 
-                details={"error": "Failed to load table"}
+                    "rewinder zone tension": "100",
+                },
+                confidence=0.1,
+                source="default",
+                details={"error": "Failed to load table"},
             )
-        
+
         try:
             # Get inputs
             winders_brand = conditions.get("winders brand", "EMT").strip().lower()
-            media_weight_class = lookup_values.get("media weight class", "medium").strip().lower()
-            
+            media_weight_class = (
+                lookup_values.get("media weight class", "medium").strip().lower()
+            )
+
             # Filter the table
             df.columns = df.columns.str.strip().str.lower()
             filtered_df = df[
-                (df['media weight class'].str.lower() == media_weight_class) &
-                (df['winders brand'].str.lower() == winders_brand)
+                (df["media weight class"].str.lower() == media_weight_class)
+                & (df["winders brand"].str.lower() == winders_brand)
             ]
-            
+
             if not filtered_df.empty:
                 row = filtered_df.iloc[0]
                 tensions = {
                     "dryer zone tension": row["dryer zone"],
                     "print zone tension": row["print zone"],
                     "unwinder zone tension": row["unwinder zone"],
-                    "rewinder zone tension": row["rewinder zone"]
+                    "rewinder zone tension": row["rewinder zone"],
                 }
-                
+
                 return AgentResult(
-                    name="tensions", 
-                    value=tensions, 
+                    name="tensions",
+                    value=tensions,
                     confidence=0.9,
                     source=self.table_filename,
                     details={
                         "winders_brand": winders_brand,
-                        "media_weight_class": media_weight_class
-                    }
+                        "media_weight_class": media_weight_class,
+                    },
                 )
-                
+
             # No match found
             return AgentResult(
-                name="tensions", 
+                name="tensions",
                 value={
                     "dryer zone tension": "100",
                     "print zone tension": "100",
                     "unwinder zone tension": "100",
-                    "rewinder zone tension": "100"
-                }, 
+                    "rewinder zone tension": "100",
+                },
                 confidence=0.3,
                 source="default",
                 details={
-                    "reason": "No matching rule found", 
+                    "reason": "No matching rule found",
                     "winders_brand": winders_brand,
-                    "media_weight_class": media_weight_class
-                }
+                    "media_weight_class": media_weight_class,
+                },
             )
-            
+
         except Exception as e:
             return AgentResult(
-                name="tensions", 
+                name="tensions",
                 value={
                     "dryer zone tension": "100",
                     "print zone tension": "100",
                     "unwinder zone tension": "100",
-                    "rewinder zone tension": "100"
-                }, 
+                    "rewinder zone tension": "100",
+                },
                 confidence=0.1,
                 source="default",
-                details={"error": str(e)}
+                details={"error": str(e)},
             )
 
 
 class MoisturizerAgent(BaseAgent):
     """Agent for determining moisturizer settings"""
-    
+
     def __init__(self, ruleset_folder: str):
         super().__init__("moisturizer", ruleset_folder)
         self.table_filename = "Moisturizer.html"
-    
-    def retrieve(self, conditions: Dict[str, Any], lookup_values: Dict[str, Any]) -> AgentResult:
+
+    def retrieve(
+        self, conditions: Dict[str, Any], lookup_values: Dict[str, Any]
+    ) -> AgentResult:
         df = self._load_table(self.table_filename)
         if df.empty:
             return AgentResult(
-                name="moisturizer", 
-                value={
-                    "moisturizer sides": "1",
-                    "moisturizer gsm": "1.5"
-                }, 
-                confidence=0.1, 
-                source="default", 
-                details={"error": "Failed to load table"}
+                name="moisturizer",
+                value={"moisturizer sides": "1", "moisturizer gsm": "1.5"},
+                confidence=0.1,
+                source="default",
+                details={"error": "Failed to load table"},
             )
-        
+
         try:
             # Get inputs
-            moisturizer_model = conditions.get("moisturizer model", "weko").strip().lower()
+            moisturizer_model = (
+                conditions.get("moisturizer model", "weko").strip().lower()
+            )
             surfactant = conditions.get("surfactant", "silicon").strip().lower()
-            ink_coverage_class = lookup_values.get("ink coverage class", "medium").strip().lower()
-            
+            ink_coverage_class = (
+                lookup_values.get("ink coverage class", "medium").strip().lower()
+            )
+
             # Filter the table
             df.columns = df.columns.str.strip().str.lower()
             filtered_df = df[
-                (df['ink coverage class'].str.lower() == ink_coverage_class) &
-                (df['moisturizer model'].str.lower() == moisturizer_model) &
-                (df['surfactant'].str.lower() == surfactant)
+                (df["ink coverage class"].str.lower() == ink_coverage_class)
+                & (df["moisturizer model"].str.lower() == moisturizer_model)
+                & (df["surfactant"].str.lower() == surfactant)
             ]
-            
+
             if not filtered_df.empty:
                 row = filtered_df.iloc[0]
                 settings = {
                     "moisturizer sides": row["moisturizer sides"],
-                    "moisturizer gsm": row["moisturizer gsm"]
+                    "moisturizer gsm": row["moisturizer gsm"],
                 }
-                
+
                 return AgentResult(
-                    name="moisturizer", 
-                    value=settings, 
+                    name="moisturizer",
+                    value=settings,
                     confidence=0.9,
                     source=self.table_filename,
                     details={
                         "moisturizer_model": moisturizer_model,
                         "surfactant": surfactant,
-                        "ink_coverage_class": ink_coverage_class
-                    }
+                        "ink_coverage_class": ink_coverage_class,
+                    },
                 )
-                
+
             # No match found
             return AgentResult(
-                name="moisturizer", 
-                value={
-                    "moisturizer sides": "1",
-                    "moisturizer gsm": "1.5"
-                }, 
+                name="moisturizer",
+                value={"moisturizer sides": "1", "moisturizer gsm": "1.5"},
                 confidence=0.3,
                 source="default",
                 details={
-                    "reason": "No matching rule found", 
+                    "reason": "No matching rule found",
                     "moisturizer_model": moisturizer_model,
                     "surfactant": surfactant,
-                    "ink_coverage_class": ink_coverage_class
-                }
+                    "ink_coverage_class": ink_coverage_class,
+                },
             )
-            
+
         except Exception as e:
             return AgentResult(
-                name="moisturizer", 
-                value={
-                    "moisturizer sides": "1",
-                    "moisturizer gsm": "1.5"
-                }, 
+                name="moisturizer",
+                value={"moisturizer sides": "1", "moisturizer gsm": "1.5"},
                 confidence=0.1,
                 source="default",
-                details={"error": str(e)}
+                details={"error": str(e)},
             )
 
 
 class InputExtractionAgent:
     """Agent for extracting structured inputs from user query"""
-    
+
     def __init__(self, default_values: Dict[str, Any] = None):
         self.default_values = default_values or {
             "ink coverage": "25",
@@ -773,34 +882,34 @@ class InputExtractionAgent:
             "dryer configuration": "default",
             "moisturizer model": "weko",
             "surfactant": "silicon",
-            "winders brand": "EMT"
+            "winders brand": "EMT",
         }
-        
+
     def extract_conditions(self, user_query: str) -> Dict[str, Any]:
         """Extract key-value pairs from user query"""
         conditions = {}
         lines = user_query.splitlines()
-        
+
         for line in lines:
             if "-" in line:
                 key, val = map(str.strip, line.split("-", 1))
                 conditions[key.lower()] = val
-        
+
         # Fill in defaults for missing values
         for key, default_val in self.default_values.items():
             if key not in conditions:
                 conditions[key] = default_val
-                
+
         return conditions
 
 
 class ConfigurationSystem:
     """Main class that orchestrates the whole process"""
-    
+
     def __init__(self, ruleset_folder: str = "Rulesets/all_intermediate"):
         self.ruleset_folder = ruleset_folder
         self.input_extractor = InputExtractionAgent()
-        
+
         # Initialize all agents
         self.agents = [
             InkCoverageClassAgent(ruleset_folder),
@@ -812,87 +921,96 @@ class ConfigurationSystem:
             TargetPressSpeedAgent(ruleset_folder),
             TargetDryerPowerAgent(ruleset_folder),
             TensionsAgent(ruleset_folder),
-            MoisturizerAgent(ruleset_folder)
+            MoisturizerAgent(ruleset_folder),
         ]
-        
+
     def process_query(self, user_query: str, verbose: bool = False) -> Dict[str, Any]:
         """Process a user query and generate configuration"""
-        
+
         # Step 1: Extract inputs from user query
         conditions = self.input_extractor.extract_conditions(user_query)
         if verbose:
             print("Extracted Conditions:")
             for k, v in conditions.items():
                 print(f"  {k}: {v}")
-                
+
         # Step 2: Execute intermediate value retrieval agents
         lookup_values = {}
         agent_results = []
-        
+
         # First pass: Get primary classes (ink coverage, media weight, etc.)
-        primary_agents = [agent for agent in self.agents if agent.name in (
-            "ink_coverage_class", "media_weight_class", "media_treatment_class"
-        )]
-        
+        primary_agents = [
+            agent
+            for agent in self.agents
+            if agent.name
+            in ("ink_coverage_class", "media_weight_class", "media_treatment_class")
+        ]
+
         for agent in primary_agents:
             result = agent.retrieve(conditions, lookup_values)
             agent_results.append(result)
-            
+
             # Store result for lookup by other agents
             if isinstance(result.value, dict):
                 for k, v in result.value.items():
                     lookup_values[k] = v
             else:
                 lookup_values[result.name] = result.value
-                
+
             if verbose:
                 print(f"✅ {result}")
-        
+
         # Second pass: Get secondary values (nominal dryer power, nominal press speed, max press speed)
-        secondary_agents = [agent for agent in self.agents if agent.name in (
-            "nominal_dryer_power", "nominal_press_speed", "max_press_speed"
-        )]
-        
+        secondary_agents = [
+            agent
+            for agent in self.agents
+            if agent.name
+            in ("nominal_dryer_power", "nominal_press_speed", "max_press_speed")
+        ]
+
         for agent in secondary_agents:
             result = agent.retrieve(conditions, lookup_values)
             agent_results.append(result)
-            
+
             # Store result for lookup by other agents
             if isinstance(result.value, dict):
                 for k, v in result.value.items():
                     lookup_values[k] = v
             else:
                 lookup_values[result.name] = result.value
-                
+
             if verbose:
                 print(f"✅ {result}")
-                
+
         # Third pass: Get final values (target press speed, target dryer power, tensions, moisturizer)
-        final_agents = [agent for agent in self.agents if agent.name in (
-            "target_press_speed", "target_dryer_power", "tensions", "moisturizer"
-        )]
-        
+        final_agents = [
+            agent
+            for agent in self.agents
+            if agent.name
+            in ("target_press_speed", "target_dryer_power", "tensions", "moisturizer")
+        ]
+
         for agent in final_agents:
             result = agent.retrieve(conditions, lookup_values)
             agent_results.append(result)
-            
+
             # Store result for lookup by other agents
             if isinstance(result.value, dict):
                 for k, v in result.value.items():
                     lookup_values[k] = v
             else:
                 lookup_values[result.name] = result.value
-                
+
             if verbose:
                 print(f"✅ {result}")
-        
+
         # Step 3: Generate final output
         results = {
             "inputs": conditions,
             "intermediate_values": {},
-            "final_configuration": {}
+            "final_configuration": {},
         }
-        
+
         # Build intermediate values
         results["intermediate_values"] = {
             "ink_coverage_class": lookup_values.get("ink coverage class"),
@@ -900,9 +1018,9 @@ class ConfigurationSystem:
             "media_treatment_class": lookup_values.get("media treatment class"),
             "nominal_dryer_power": lookup_values.get("nominal dryer power"),
             "nominal_press_speed": lookup_values.get("nominal press speed"),
-            "max_press_speed": lookup_values.get("max press speed")
+            "max_press_speed": lookup_values.get("max press speed"),
         }
-        
+
         # Build final configuration
         results["final_configuration"] = {
             "target_press_speed": lookup_values.get("target press speed"),
@@ -912,54 +1030,58 @@ class ConfigurationSystem:
             "unwinder_zone_tension": lookup_values.get("unwinder zone tension"),
             "rewinder_zone_tension": lookup_values.get("rewinder zone tension"),
             "moisturizer_sides": lookup_values.get("moisturizer sides"),
-            "moisturizer_gsm": lookup_values.get("moisturizer gsm")
+            "moisturizer_gsm": lookup_values.get("moisturizer gsm"),
         }
-        
+
         # Add agent details for debugging
         if verbose:
-            results["agent_details"] = {result.name: result.details for result in agent_results}
-            
+            results["agent_details"] = {
+                result.name: result.details for result in agent_results
+            }
+
         return results
 
     def generate_report(self, results: Dict[str, Any]) -> str:
         """Generate a readable report from the results"""
         report = []
-        
+
         # Add header
         report.append("# PageWide Press Configuration Report\n")
-        
+
         # Add inputs section
         report.append("## Input Parameters")
         for key, value in results["inputs"].items():
             report.append(f"* {key.replace('_', ' ').title()}: {value}")
         report.append("")
-        
+
         # Add intermediate values section
         report.append("## Intermediate Values")
         for key, value in results["intermediate_values"].items():
             if value is not None:
                 report.append(f"* {key.replace('_', ' ').title()}: {value}")
         report.append("")
-        
+
         # Add final configuration section
         report.append("## Final Configuration")
         for key, value in results["final_configuration"].items():
             if value is not None:
                 report.append(f"* {key.replace('_', ' ').title()}: {value}")
-        
+
         return "\n".join(report)
 
-#cleaned_intermediate_values = convert_numpy(intermediate_values)
+
+# cleaned_intermediate_values = convert_numpy(intermediate_values)
 
 # LLM Integration (Optional)
 try:
-    
 
     def load_llm(model_name="llama3.2"):
         """Load a LLM from Ollama"""
         return ChatGroq(model="gemma2-9b-it", api_key=GROQ_API)
 
-    def query_llm(input_params, intermediate_values, final_config, question, model_name="llama3.2"):
+    def query_llm(
+        input_params, intermediate_values, final_config, question, model_name="llama3.2"
+    ):
         """Query a LLM to get insights about the configuration"""
         llm = load_llm(model_name)
         template = """You are a technical assistant for HP PageWide industrial presses.
@@ -978,8 +1100,13 @@ try:
     {question}
     """
         prompt = PromptTemplate(
-            input_variables=["input_params", "intermediate_values", "final_config", "question"],
-            template=template
+            input_variables=[
+                "input_params",
+                "intermediate_values",
+                "final_config",
+                "question",
+            ],
+            template=template,
         )
 
         cleaned_input_params = convert_numpy(input_params)
@@ -990,24 +1117,29 @@ try:
             input_params=json.dumps(cleaned_input_params, indent=2),
             intermediate_values=json.dumps(cleaned_intermediate_values, indent=2),
             final_config=json.dumps(cleaned_final_config, indent=2),
-            question=question
+            question=question,
         )
 
         return llm.invoke(formatted_prompt)
+
 except ImportError:
+
     def load_llm(*args, **kwargs):
-        print("LangChain not available. Install with: pip install langchain langchain-ollama")
+        print(
+            "LangChain not available. Install with: pip install langchain langchain-ollama"
+        )
         return None
-        
+
     def query_llm(*args, **kwargs):
         print("LLM querying not available. Install dependencies first.")
         return "LLM integration not available."
+
 
 def extract_inputs_from_natural_query(query, model_name="llama3"):
     # Step 1: Build the prompt
     prompt = PromptTemplate(
         input_variables=["query"],
-        template="""You are an assistant that extracts structured configuration fields from print job descriptions. 
+        template="""You are an assistant that extracts structured configuration fields from print job descriptions.
 Given the following user query, extract the following fields into a JSON object with exactly these keys:
 
 - media coating
@@ -1037,11 +1169,11 @@ USER QUERY:
 {query}
 
 Extracted JSON (only the object, nothing else):
-"""
+""",
     )
 
     # Step 2: Call the LLM
-    #llm = OllamaLLM(model=model_name)
+    # llm = OllamaLLM(model=model_name)
     llm = ChatGroq(model="gemma2-9b-it", api_key=GROQ_API)
     raw = llm.invoke(prompt.format(query=query))
 
@@ -1069,7 +1201,7 @@ Extracted JSON (only the object, nothing else):
         "moisturizer model": "weko",
         "surfactant": "silicon",
         "winders brand": "EMT",
-        "media finish": "smooth"
+        "media finish": "smooth",
     }
 
     # Normalize and auto-fill nulls
@@ -1082,26 +1214,30 @@ Extracted JSON (only the object, nothing else):
 
     return complete_json
 
+
 def clean_markdown_to_kv(text: str) -> str:
     lines = text.splitlines()
     out = []
     for line in lines:
-        match = re.match(r'\d+\.\s+\*\*(.*?)\*\*:\s*(.*)', line)
+        match = re.match(r"\d+\.\s+\*\*(.*?)\*\*:\s*(.*)", line)
         if match:
             key, val = match.groups()
             out.append(f"{key.lower().strip()} - {val.strip()}")
     return "\n".join(out)
+
 
 # Example usage
 def setup_ruleset_tools(mcp: FastMCP):
     @mcp.tool()
     def evaluate_ruleset(query: str) -> Dict[str, str]:
         # Initialize configuration system
-        config_system = ConfigurationSystem(ruleset_folder="AI-Smart-Advisor-to-Automate-Control-of-a-Million-Dollar-Printing-Press/mcp_server/data/rulesets")
-        
+        config_system = ConfigurationSystem(
+            ruleset_folder="AI-Smart-Advisor-to-Automate-Control-of-a-Million-Dollar-Printing-Press/mcp_server/data/rulesets"
+        )
+
         # Example query
         # user_query = """
-        
+
         # media coating - Uncoated
         # media finish - Eggshell
         # ink coverage - 96
@@ -1113,9 +1249,8 @@ def setup_ruleset_tools(mcp: FastMCP):
         # moisturizer model - Eltex
         # surfactant - Silicon
 
-
         # """
-        
+
         # # Process query
         # results = config_system.process_query(user_query, verbose=True)
 
@@ -1142,20 +1277,22 @@ def setup_ruleset_tools(mcp: FastMCP):
         print("hello world!!!!")
         # Print report
         print("\n PrintReports:" + config_system.generate_report(results))
-        
+
         # Optional: Ask LLM for insights
         llm_question = "Explain how the ink coverage and dryer configuration affect the target press speed and what improvements could be made."
         llm_response = query_llm(
             results["inputs"],
             results["intermediate_values"],
             results["final_configuration"],
-            llm_question
+            llm_question,
         )
         print("\nLLM Insights:")
         print(llm_response)
         # return f"\n{results}\n{llm_response}\n"
         # cleaned_query = clean_markdown_to_kv(query)
-        return json.dumps({
-            "report": config_system.generate_report(results),
-            "llm_insights": str(llm_response.content)
-        })
+        return json.dumps(
+            {
+                "report": config_system.generate_report(results),
+                "llm_insights": str(llm_response.content),
+            }
+        )

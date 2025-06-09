@@ -32,7 +32,7 @@ services:
     volumes:
       - ./mcp_server:/app/mcp_server
       - ./requirements.txt:/app/requirements.txt
-      - ./caddy-logs:/logs:ro 
+      - ./caddy-logs:/logs:ro
     env_file:
       - .env
     environment:

@@ -5,9 +5,9 @@ Configuration package for the MCP Server.
 from mcp_server.config.settings import (
     DATA_DIR,
     DOCUMENTS_DIR,
-    PDF_DIR,
     GROQ_API,
     LLM_MODEL,
+    PDF_DIR,
     RULESET_FILES,
     RULESETS_DIR,
     SERVER_HOST,

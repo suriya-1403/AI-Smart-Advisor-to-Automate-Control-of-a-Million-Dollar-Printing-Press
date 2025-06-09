@@ -1,17 +1,19 @@
-import os
 import json
+import os
 import re
-from typing import Optional
 from pathlib import Path
-from PyPDF2 import PdfReader
+from typing import Optional
 
 from langchain_groq import ChatGroq
 from mcp.server.fastmcp import FastMCP
+from PyPDF2 import PdfReader
+
 from mcp_server.config import DOCUMENTS_DIR, GROQ_API, LLM_MODEL, PDF_DIR
 
 llm = ChatGroq(model=LLM_MODEL, api_key=GROQ_API)
 
 # === UTILS ===
+
 
 def extract_event_identifier(query: str) -> Optional[str]:
     patterns = [r"event[_\s-]?(\d+)", r"(\d+)"]
@@ -20,6 +22,7 @@ def extract_event_identifier(query: str) -> Optional[str]:
         if match:
             return match.group(1)
     return None
+
 
 def find_event_json_by_id(event_id: str) -> Optional[tuple[str, dict]]:
     for filename in os.listdir(DOCUMENTS_DIR):
@@ -34,16 +37,24 @@ def find_event_json_by_id(event_id: str) -> Optional[tuple[str, dict]]:
                 print(f"⚠️ Failed reading {filename}: {e}")
     return None
 
+
 def read_pdf_matching_filename(json_filename: str) -> Optional[str]:
     basename = Path(json_filename).stem
     for pdf_path in Path(PDF_DIR).glob("*.pdf"):
         if Path(pdf_path).stem == basename:
             try:
                 reader = PdfReader(pdf_path)
-                return "\n".join([page.extract_text() for page in reader.pages if page.extract_text()])
+                return "\n".join(
+                    [
+                        page.extract_text()
+                        for page in reader.pages
+                        if page.extract_text()
+                    ]
+                )
             except Exception as e:
                 print(f"❌ PDF read failed: {e}")
     return None
+
 
 def summarize_pdf_content(content: str) -> str:
     prompt = f"""
@@ -57,6 +68,7 @@ Return a concise summary for a technical user.
 """
     return llm.invoke(prompt).content.strip()
 
+
 def format_event_metadata(event: dict) -> str:
     return f"""📋 **Metadata Summary**
 - Event ID: {event.get("event_id", "Unknown")}
@@ -68,7 +80,9 @@ def format_event_metadata(event: dict) -> str:
 - Weight (GSM): {event.get("Media Weight GSM", "Unknown")}
 """
 
+
 # === MCP Tool Setup ===
+
 
 def setup_event_tools(mcp: FastMCP):
     @mcp.tool()
@@ -110,4 +124,8 @@ def setup_event_tools(mcp: FastMCP):
                             event_ids.append(str(data["event_id"]))
                 except:
                     continue
-        return "📂 Available Event IDs:\n" + "\n".join(sorted(set(event_ids))) if event_ids else "❌ No events found."
+        return (
+            "📂 Available Event IDs:\n" + "\n".join(sorted(set(event_ids)))
+            if event_ids
+            else "❌ No events found."
+        )

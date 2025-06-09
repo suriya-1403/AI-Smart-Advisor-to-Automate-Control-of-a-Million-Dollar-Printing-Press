@@ -1,13 +1,13 @@
 import json
-import traceback
 import os
+import traceback
 from pathlib import Path
 
+import requests
 import uvicorn
 from fastapi import Body, FastAPI
-import requests
-from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, JSONResponse
 
 # Import your existing functions
 from langchain_core.tracers import ConsoleCallbackHandler
@@ -15,7 +15,7 @@ from langsmith import Client
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 
-from mcp_server.config import SERVER_HOST, SERVER_PORT, LLM_MODEL,DOCUMENTS_DIR
+from mcp_server.config import DOCUMENTS_DIR, LLM_MODEL, SERVER_HOST, SERVER_PORT
 from mcp_server.core import create_router
 from mcp_server.workflows import (
     create_document_workflow,
@@ -51,6 +51,7 @@ LOG_FILE_PATH = "/logs/access.log"
 
 geo_cache = {}
 
+
 def is_local_ip(ip):
     return (
         ip.startswith("192.")
@@ -58,6 +59,7 @@ def is_local_ip(ip):
         or ip.startswith("10.")
         or ip.startswith("172.")
     )
+
 
 # ipapi.co with error handling
 def ipapi_fallback(ip):
@@ -70,13 +72,19 @@ def ipapi_fallback(ip):
         pass
     return None
 
+
 # GeoIP provider functions
 GEOIP_PROVIDERS = [
     ipapi_fallback,
     lambda ip: requests.get(f"https://ipwho.is/{ip}", timeout=2).json().get("city"),
-    lambda ip: requests.get(f"https://ipinfo.io/{ip}/json", timeout=2).json().get("city"),
-    lambda ip: requests.get(f"https://ipapi.de/ip/{ip}.json", timeout=2).json().get("city"),
+    lambda ip: requests.get(f"https://ipinfo.io/{ip}/json", timeout=2)
+    .json()
+    .get("city"),
+    lambda ip: requests.get(f"https://ipapi.de/ip/{ip}.json", timeout=2)
+    .json()
+    .get("city"),
 ]
+
 
 # Master function to get location
 def get_ip_location(ip: str) -> str:
@@ -90,7 +98,11 @@ def get_ip_location(ip: str) -> str:
     for provider in GEOIP_PROVIDERS:
         try:
             city = provider(ip)
-            if city and isinstance(city, str) and "please try again" not in city.lower():
+            if (
+                city
+                and isinstance(city, str)
+                and "please try again" not in city.lower()
+            ):
                 geo_cache[ip] = city
                 return city
         except:
@@ -98,6 +110,7 @@ def get_ip_location(ip: str) -> str:
 
     geo_cache[ip] = "Unknown"
     return "Unknown"
+
 
 def extract_real_ip(entry):
     try:
@@ -107,7 +120,8 @@ def extract_real_ip(entry):
         return entry.get("request", {}).get("remote_ip", "Unknown")
     except:
         return "Unknown"
-    
+
+
 @app.get("/logzz", response_class=JSONResponse)
 async def get_caddy_logs():
     logs = []
@@ -125,10 +139,12 @@ async def get_caddy_logs():
                     continue
     return {"data": logs}
 
+
 @app.get("/logdashz", response_class=HTMLResponse)
 async def serve_dashboard():
     with open("/app/mcp_server/logDash.html") as f:
         return f.read()
+
 
 # Add new endpoint to check for JSON files
 @app.get("/check-json-files")
@@ -141,13 +157,14 @@ async def check_json_files():
             print("→ directory does not exist")
 
             return {"hasJsonFiles": False}
-        
+
         json_files = list(documents_dir.glob("*.json"))
         return {"hasJsonFiles": len(json_files) > 0}
     except Exception as e:
         print(f"Error checking JSON files: {str(e)}")
         print(traceback.format_exc())
         return {"hasJsonFiles": False}
+
 
 # Modified process_query function with better error handling
 async def process_query(query: str):
@@ -188,7 +205,7 @@ async def process_query(query: str):
                                 "type": "document_search",
                                 "document": full_doc,
                                 "summary": summary,
-                                "model": LLM_MODEL
+                                "model": LLM_MODEL,
                             }
                         elif task_type == "event_information":
                             # Process event information query
@@ -217,7 +234,7 @@ async def process_query(query: str):
                                 "documents": found_documents,
                                 "structured_data": structured_data,
                                 "summary": summary,
-                                "model": LLM_MODEL
+                                "model": LLM_MODEL,
                             }
                         elif task_type == "general_knowledge":
                             # Process general knowledge query
@@ -242,7 +259,7 @@ async def process_query(query: str):
                                 "formatted_query": formatted_query,
                                 "knowledge_response": knowledge_response,
                                 "final_answer": final_answer,
-                                "model": LLM_MODEL
+                                "model": LLM_MODEL,
                             }
                         else:
                             # Process ruleset evaluation query
@@ -257,7 +274,9 @@ async def process_query(query: str):
                             print("📦 RAW RULESET RESULT:", ruleset_result)
                             # parsed_insights = json.loads(ruleset_result['evaluation']['llm_insights'])
                             # llm_insights_str = ruleset_result["evaluation"]["llm_insights"]
-                            llm_insights_raw = ruleset_result["evaluation"]["llm_insights"]
+                            llm_insights_raw = ruleset_result["evaluation"][
+                                "llm_insights"
+                            ]
                             report = ruleset_result.get("evaluation", {}).get("report")
 
                             if report:
@@ -289,7 +308,7 @@ async def process_query(query: str):
                                 "type": "ruleset_evaluation",
                                 "report": report,
                                 "explanation": llm_insights_raw,
-                                "model": LLM_MODEL
+                                "model": LLM_MODEL,
                             }
                     except Exception as e:
                         print(f"Error during workflow execution: {str(e)}")

@@ -20,7 +20,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 DATA_DIR = os.path.join(BASE_DIR, "mcp_server/data")
 DOCUMENTS_DIR = os.path.join(DATA_DIR, "documents")
 RULESETS_DIR = os.path.join(DATA_DIR, "rulesets")
-PDF_DIR = os.path.join(DATA_DIR,"PDF")
+PDF_DIR = os.path.join(DATA_DIR, "PDF")
 
 # LLM configuration
 LLM_MODEL = "meta-llama/llama-4-maverick-17b-128e-instruct"

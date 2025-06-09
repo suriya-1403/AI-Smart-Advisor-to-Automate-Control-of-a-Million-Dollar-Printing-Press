@@ -14,26 +14,30 @@ from mcp_server.config import GROQ_API, LLM_MODEL
 def clean_response(response_text: str) -> str:
     """
     Clean up a knowledge response by removing duplicate or generic sections.
-    
+
     Args:
         response_text: Raw response text from the LLM.
-        
+
     Returns:
         Cleaned response text.
     """
     # Remove any "Knowledge Response" header that might be present
-    response_text = re.sub(r'^Knowledge Response\s*\n+', '', response_text, flags=re.IGNORECASE)
-    
+    response_text = re.sub(
+        r"^Knowledge Response\s*\n+", "", response_text, flags=re.IGNORECASE
+    )
+
     # Remove the generic fallback sections at the end if they appear after proper content
-    fallback_pattern = r'\*\*Key Points:\*\*\s*•\s*Comprehensive explanation provided[\s\S]*$'
-    response_text = re.sub(fallback_pattern, '', response_text)
-    
+    fallback_pattern = (
+        r"\*\*Key Points:\*\*\s*•\s*Comprehensive explanation provided[\s\S]*$"
+    )
+    response_text = re.sub(fallback_pattern, "", response_text)
+
     # Clean up any "**Answer:**" prefix if present
-    response_text = re.sub(r'^\s*\*\*Answer:\*\*\s*', '', response_text)
-    
+    response_text = re.sub(r"^\s*\*\*Answer:\*\*\s*", "", response_text)
+
     # Clean up extra whitespace
-    response_text = re.sub(r'\n{3,}', '\n\n', response_text)
-    
+    response_text = re.sub(r"\n{3,}", "\n\n", response_text)
+
     return response_text.strip()
 
 
@@ -62,7 +66,7 @@ def setup_general_knowledge_tools(mcp: FastMCP):
 
         system_prompt = """
         You are an expert HP PageWide printing consultant and educator. Your role is to provide comprehensive, educational responses about printing concepts, media types, ink coverage, press operations, and HP PageWide technology.
-        
+
         When answering questions, provide detailed explanations that include:
         1. Clear definitions and concepts
         2. Technical details and specifications
@@ -115,18 +119,18 @@ def setup_general_knowledge_tools(mcp: FastMCP):
             response_content = (
                 result.content if hasattr(result, "content") else str(result)
             )
-            
+
             # Clean up the response to remove any duplicate or generic sections
             cleaned_response = clean_response(response_content)
-            
+
             return cleaned_response
 
         except Exception as e:
             error_message = f"""
             ## Error Processing Request
-            
+
             I apologize, but I encountered an error while processing your question: {str(e)}
-            
+
             ### Troubleshooting
             - Please try rephrasing your question
             - Ensure your question is related to printing concepts

@@ -30,12 +30,12 @@ function parseDocumentSearch(rawText) {
 
   // Look for the summary section using a more robust approach
   let summaryText = '';
-  
+
   // Check if the text contains a Summary header
   if (rawText.includes('Summary')) {
     // Find the position of "Summary" in the text
     const summaryPos = rawText.indexOf('Summary');
-    
+
     // Extract everything after "Summary"
     if (summaryPos !== -1) {
       summaryText = rawText.substring(summaryPos + 'Summary'.length).trim();
@@ -48,7 +48,7 @@ function parseDocumentSearch(rawText) {
   if (foundLine) {
     mainSection = mainSection.replace(foundLine, '').trim();
   }
-  
+
   if (summaryText) {
     // Remove the Summary section from the main content
     mainSection = mainSection.substring(0, mainSection.indexOf('Summary')).trim();
@@ -60,7 +60,7 @@ function parseDocumentSearch(rawText) {
   // Check the debug console for the full summary
   // From your screenshot, I can see the full summary in the console logs
   let summary = [];
-  
+
   // If we have a summary, use it
   if (summaryText) {
     // If it looks too short (truncated), use a default complete summary
@@ -357,7 +357,7 @@ ${data.result.final_answer || data.result.knowledge_response || 'Knowledge respo
       .replace(/^## (.*$)/gm, '<h4>$1</h4>')
       .replace(/\n\n/g, '<br/><br/>')
       .replace(/\n/g, '<br/>');
-  
+
     return <div dangerouslySetInnerHTML={{ __html: formattedContent }} />;
   };
 
