@@ -3,6 +3,19 @@
   encode gzip zstd
   file_server
 
+  route /logdashz* {
+  basicauth * {
+    admin $2a$14$Yt2Ne95JZqcleCFGX3PZ9enIAYdCC6UnZpXhnkH64fkD9/f7hsn7e
+  }
+  reverse_proxy web-api:8000
+}
+
+route /logzz* {
+  basicauth * {
+    admin $2a$14$Yt2Ne95JZqcleCFGX3PZ9enIAYdCC6UnZpXhnkH64fkD9/f7hsn7e
+  }
+  reverse_proxy web-api:8000
+}
   # API Proxying
   reverse_proxy /query* web-api:8000
   reverse_proxy /check-json-files* web-api:8000
@@ -12,14 +25,14 @@
 
   # SPA Fallback for React
   @notAPI {
-    not path /query* /check-json-files* /docs* /messages* /sse*
+    not path /query* /check-json-files* /docs* /messages* /sse* /logzz /logdashz
   }
   handle @notAPI {
     try_files {path} /index.html
   }
 
   log {
-    output stdout
-    format console
+    output file /var/log/caddy/access.log
+    format json
   }
 }

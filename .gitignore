@@ -195,3 +195,7 @@ text extraction.ipynb
 *.ipr
 
 Frontend/node_modules
+logViewer/
+/mcp_server/data/chroma_store
+/mcp_server/data/check
+mcp_server/tools/ruleset_tools.py

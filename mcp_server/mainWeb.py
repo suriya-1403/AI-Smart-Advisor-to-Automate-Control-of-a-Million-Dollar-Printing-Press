@@ -5,6 +5,8 @@ from pathlib import Path
 
 import uvicorn
 from fastapi import Body, FastAPI
+import requests
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 # Import your existing functions
@@ -13,7 +15,7 @@ from langsmith import Client
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 
-from mcp_server.config import SERVER_HOST, SERVER_PORT, LLM_MODEL
+from mcp_server.config import SERVER_HOST, SERVER_PORT, LLM_MODEL,DOCUMENTS_DIR
 from mcp_server.core import create_router
 from mcp_server.workflows import (
     create_document_workflow,
@@ -44,13 +46,100 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+LOG_FILE_PATH = "/logs/access.log"
+
+
+geo_cache = {}
+
+def is_local_ip(ip):
+    return (
+        ip.startswith("192.")
+        or ip.startswith("127.")
+        or ip.startswith("10.")
+        or ip.startswith("172.")
+    )
+
+# ipapi.co with error handling
+def ipapi_fallback(ip):
+    try:
+        res = requests.get(f"https://ipapi.co/{ip}/city/", timeout=2)
+        if res.status_code == 200:
+            if "rapid request" not in res.text.lower():
+                return res.text.strip()
+    except:
+        pass
+    return None
+
+# GeoIP provider functions
+GEOIP_PROVIDERS = [
+    ipapi_fallback,
+    lambda ip: requests.get(f"https://ipwho.is/{ip}", timeout=2).json().get("city"),
+    lambda ip: requests.get(f"https://ipinfo.io/{ip}/json", timeout=2).json().get("city"),
+    lambda ip: requests.get(f"https://ipapi.de/ip/{ip}.json", timeout=2).json().get("city"),
+]
+
+# Master function to get location
+def get_ip_location(ip: str) -> str:
+    if ip in geo_cache:
+        return geo_cache[ip]
+
+    if is_local_ip(ip):
+        geo_cache[ip] = "Local Network"
+        return geo_cache[ip]
+
+    for provider in GEOIP_PROVIDERS:
+        try:
+            city = provider(ip)
+            if city and isinstance(city, str) and "please try again" not in city.lower():
+                geo_cache[ip] = city
+                return city
+        except:
+            continue
+
+    geo_cache[ip] = "Unknown"
+    return "Unknown"
+
+def extract_real_ip(entry):
+    try:
+        xff = entry.get("request", {}).get("headers", {}).get("X-Forwarded-For")
+        if xff and isinstance(xff, list) and xff[0]:
+            return xff[0]
+        return entry.get("request", {}).get("remote_ip", "Unknown")
+    except:
+        return "Unknown"
+    
+@app.get("/logzz", response_class=JSONResponse)
+async def get_caddy_logs():
+    logs = []
+    if os.path.exists(LOG_FILE_PATH):
+        with open(LOG_FILE_PATH, "r") as f:
+            for line in f:
+                try:
+                    entry = json.loads(line.strip())
+                    ip = extract_real_ip(entry)
+                    entry["remote_ip"] = ip
+                    entry["location"] = get_ip_location(ip)
+                    logs.append(entry)
+                except Exception as e:
+                    print("❌ Failed to parse log line:", e)
+                    continue
+    return {"data": logs}
+
+@app.get("/logdashz", response_class=HTMLResponse)
+async def serve_dashboard():
+    with open("/app/mcp_server/logDash.html") as f:
+        return f.read()
+
 # Add new endpoint to check for JSON files
 @app.get("/check-json-files")
 async def check_json_files():
     """Check if JSON files exist in the documents directory."""
     try:
-        documents_dir = Path("/app/mcp_server/data/documents")
+        print(DOCUMENTS_DIR)
+        documents_dir = Path(DOCUMENTS_DIR)
         if not documents_dir.exists():
+            print("→ directory does not exist")
+
             return {"hasJsonFiles": False}
         
         json_files = list(documents_dir.glob("*.json"))
@@ -72,7 +161,8 @@ async def process_query(query: str):
         Dictionary with processing results.
     """
     try:
-        SSE_URL = f"http://{os.getenv('SSE_HOST')}:{os.getenv('SSE_PORT')}/sse"
+        # SSE_URL = f"http://{os.getenv('SSE_HOST')}:{os.getenv('SSE_PORT')}/sse"
+        SSE_URL = "http://localhost:8050/sse"
         # Connect to the MCP server
         async with sse_client(SSE_URL) as (r, w):
             try:
@@ -167,9 +257,7 @@ async def process_query(query: str):
                             print("📦 RAW RULESET RESULT:", ruleset_result)
                             # parsed_insights = json.loads(ruleset_result['evaluation']['llm_insights'])
                             # llm_insights_str = ruleset_result["evaluation"]["llm_insights"]
-                            llm_insights_raw = ruleset_result["evaluation"][
-                                "llm_insights"
-                            ]
+                            llm_insights_raw = ruleset_result["evaluation"]["llm_insights"]
                             report = ruleset_result.get("evaluation", {}).get("report")
 
                             if report:

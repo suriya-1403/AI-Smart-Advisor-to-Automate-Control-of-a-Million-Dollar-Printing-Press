@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import './ChatBot.css';
 
 // Move these functions to the top of the file, before the ChatBot component
@@ -82,19 +83,17 @@ function parseDocumentSearch(rawText) {
 const allSuggestions = [
   { title: 'Find prints', description: 'with heavy ink coverage on glossy media' },
   { title: 'Show me documents', description: 'about T250 printers using 75GSM paper' },
-  { title: 'Get all reports', description: 'from the Las Vegas expo' },
   { title: 'Which documents mention', description: 'coated inkjet with 266 GSM?' },
   { title: 'I want to print on', description: 'uncoated eggshell paper with an ink coverage of 96% and optical density of 88%. The paper weight is 372 GSM. Use the Performance HDK print mode, with a 1-Zone dryer, Eltex moisturizer, Silicon surfactant, and EMT winders give final values.' },
   { title: 'Give target press speed and target dryer power', description: `I'm working with coated glossy media, ink coverage of 45%, and optical density of 60%. The weight is 70 GSM, and the print mode is Quality. The dryer is set to DEM, using Weko moisturizer, Water as surfactant, and Hunkeler winders.` },
   { title: 'The job uses coated inkjet paper', description: 'with a smooth finish, ink coverage at 96%, optical density 97%, and media weight 385 GSM. We\'re printing in Performance mode, with a 3-Zone dryer, Eltex moisturizer, Silicon surfactant, and EMT winders give target dryer power and other values.' },
   { title: 'Give final values for printing', description: 'on uncoated satin paper (weight: 210 GSM) with 50% ink and 85% density, in Performance mode, using Default dryer, Eltex, Water surfactant, and EMT winders.' },
   { title: 'Tell me about', description: 'event 71' },
-  { title: 'What happened in', description: 'event 42?' },
-  { title: 'Give me details about', description: 'event_id 128' },
-  { title: 'Show me information about', description: 'the Vegas expo event' },
-  { title: 'Describe', description: 'event 205' },
-  { title: 'What were the results of', description: 'event 89?' },
-  { title: 'Tell me what occurred during', description: 'event 156' },
+  { title: 'What happened in', description: 'event 75?' },
+  { title: 'Give me details about', description: 'event_id 83' },
+  { title: 'Describe', description: 'event 41' },
+  { title: 'What were the results of', description: 'event 55?' },
+  { title: 'Tell me what occurred during', description: 'event 49' },
   { title: 'Can you explain', description: 'the difference between coated and uncoated media?' },
   { title: 'How does heavy ink coverage affect', description: 'media requirements?' },
   { title: `What's the relationship between`, description: 'ink coverage and media weight?' },
@@ -133,7 +132,7 @@ const ChatBot = () => {
   const [chatSuggestions, setChatSuggestions] = useState(() => getRandomSuggestions(allSuggestions, 2));
 
   // API endpoint configuration
-  const API_URL = `/query`;
+  const API_URL = `http://localhost:8000/query`;
 
   // Check for JSON files on component mount
   useEffect(() => {
@@ -141,7 +140,7 @@ const ChatBot = () => {
     setShowGreenDb(false);
     const checkJsonFiles = async () => {
       try {
-        const response = await fetch(`/check-json-files`);
+        const response = await fetch(`http://localhost:8000/check-json-files`);
         const data = await response.json();
         if (data.hasJsonFiles) {
           setHasJsonFiles(true);
@@ -227,22 +226,14 @@ const ChatBot = () => {
         let formattedResponse = '';
 
         if (data.result.type === 'document_search') {
-          formattedResponse = `
-### Documents Found
-${data.result.document}
+          formattedResponse = `### Documents Found
+          ${data.result.document}
 
-### Summary
-${data.result.summary}`;
+          ### Summary
+          ${data.result.summary}`;
           setDocumentResultText(`${data.result.document}\n\nSummary\n${data.result.summary}`);
         } else if (data.result.type === 'ruleset_evaluation') {
-          formattedResponse = `
-          ### Ruleset Evaluation
-
-          **Report**
-          ${data.result.report}
-
-          **Explanation**
-          ${data.result.explanation}`;
+          formattedResponse = `## Ruleset Evaluation Report\n\n### ${data.result.report}\n\n## Explanation\n\n${data.result.explanation}`;
         } else if (data.result.type === 'event_information') {
           formattedResponse = `
 ### Event Information
@@ -350,7 +341,16 @@ ${data.result.final_answer || data.result.knowledge_response || 'Knowledge respo
     if (content.includes('Documents Found') && documents.length > 0) {
       return <DocumentResultsTable foundLine={foundLine} documents={documents} summary={summary} />;
     }
-    
+    if (content.includes('Event Information')) {
+      return <ReactMarkdown>{content}</ReactMarkdown>;
+    }
+    if (content.includes('Ruleset Evaluation')) {
+      return <ReactMarkdown>{content}</ReactMarkdown>;
+    }
+    if (content.includes('Knowledge Response')) {
+      return <ReactMarkdown>{content}</ReactMarkdown>;
+    }
+
     // Simple Markdown parsing for headings and line breaks
     const formattedContent = content
       .replace(/^### (.*$)/gm, '<h3>$1</h3>')

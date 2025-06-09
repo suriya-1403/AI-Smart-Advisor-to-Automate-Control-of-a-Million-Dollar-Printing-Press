@@ -32,6 +32,7 @@ services:
     volumes:
       - ./mcp_server:/app/mcp_server
       - ./requirements.txt:/app/requirements.txt
+      - ./caddy-logs:/logs:ro 
     env_file:
       - .env
     environment:
@@ -63,6 +64,7 @@ services:
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - ./Frontend/build:/usr/share/nginx/html
+      - ./caddy-logs:/var/log/caddy
     ports:
       - "8080:8080"
     networks:

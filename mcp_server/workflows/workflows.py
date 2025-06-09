@@ -11,7 +11,7 @@ from langsmith import traceable
 from typing_extensions import TypedDict
 
 from mcp_server.config import GROQ_API, LLM_MODEL
-
+# from mcp_server.eventRetrival_tools import extract_event_identifier, get_document_chunks_by_event_id
 # Initialize LLM
 # llm = OllamaLLM(model=LLM_MODEL)
 llm = ChatGroq(model=LLM_MODEL, api_key=GROQ_API)
@@ -104,7 +104,6 @@ class RulesetState(TypedDict):
     explanation: str
     session: object  # MCP ClientSession
 
-
 @traceable(name="RulesetEvaluationWorkflow")
 def create_ruleset_workflow(callbacks=None):
     """
@@ -140,6 +139,8 @@ def create_ruleset_workflow(callbacks=None):
     #         "evaluate_ruleset", {"query": state["formatted_parameters"]}
     #     )
     #     return {"evaluation": result.content[0].value}
+    import json  # make sure this is imported at the top
+
     async def evaluate_ruleset(state: RulesetState):
         """
         Evaluate ruleset using the formatted parameters.
@@ -148,27 +149,45 @@ def create_ruleset_workflow(callbacks=None):
             "evaluate_ruleset", {"query": state["formatted_parameters"]}
         )
 
-        raw_text = result.content[0].text  # TextContent — you must access .text
+        raw_text = result.content[0].text
+        extracted_explanation = ""
+        if 'content="' in raw_text:
+            extracted_explanation = raw_text.split('content="', 1)[1].split('"', 1)[0].replace("\\n", "\n")
 
         try:
-            parsed = json.loads(raw_text)  # Only if the tool returns JSON
-        except Exception as e:
-            parsed = {"report": None, "llm_insights": raw_text}  # fallback
+            parsed = json.loads(raw_text)
+            return {
+                "evaluation": {
+                    "report": parsed.get("report", ""),
+                    "llm_insights": parsed.get("llm_insights", "")
+                }
+            }
+        except Exception:
+            # Fallback to manually extract `report` and `llm_insights`
+            return {
+                "evaluation": {
+                    "report": raw_text.split('## Explanation')[0].strip(),
+                    "llm_insights": extracted_explanation.strip()
+                }
+            }
 
-        return {"evaluation": parsed}
 
     async def explain_results(state: RulesetState):
         """
-        Explain the results of the ruleset evaluation.
+        Extract explanation text from the ruleset evaluation results.
         """
-        # prompt = "Explain the following ruleset evaluation results in simple terms."
-        # result = await llm.ainvoke([prompt, state["evaluation"]])
+        evaluation = state.get("evaluation", {})
+        raw_insight = evaluation.get("llm_insights", "")
+
+        if hasattr(raw_insight, "content"):
+            explanation_text = raw_insight.content
+        else:
+            explanation_text = str(raw_insight)
+
         return {
-            # "explanation": str(result.content)
-            # if hasattr(result, "content")
-            # else str(result)
-            "explanation": state["evaluation"]
+            "explanation": evaluation.get("llm_insights", "").strip()
         }
+
 
     workflow = StateGraph(RulesetState)
     workflow.add_node("format_parameters", format_parameters)
@@ -190,134 +209,175 @@ class EventInfoState(TypedDict):
     """
     State type for event information workflow.
     """
-
     query: str
     event_identifier: str
-    found_documents: str
-    pdf_content: str
-    structured_data: str
     summary: str
-    session: object  # MCP ClientSession
-
+    session: object
 
 @traceable(name="EventInformationWorkflow")
 def create_event_workflow(callbacks=None):
-    """
-    Create a workflow for event information retrieval.
-
-    Args:
-        callbacks: Callbacks for the graph.
-
-    Returns:
-        Compiled workflow graph.
-    """
-
-    async def extract_event_identifier(state: EventInfoState):
-        """
-        Extract event identifier from the user's query.
-        """
-        prompt = (
-            "Extract the event identifier from this query. Look for event IDs, "
-            "event numbers, location names, or other identifying information. "
-            "Return just the key identifier (e.g., '71', 'Vegas expo', 'event_128')."
-        )
-        result = await llm.ainvoke([prompt, state["query"]])
-        return {
-            "event_identifier": str(result.content)
-            if hasattr(result, "content")
-            else str(result)
-        }
-
-    async def search_event_documents(state: EventInfoState):
-        """
-        Search for documents related to the specific event.
-        """
+    async def extract_event_id(state: EventInfoState):
         result = await state["session"].call_tool(
-            "get_event_information", {"query": state["query"]}
+        "extract_event_identifier", {"query": state["query"]}
         )
-        return {"found_documents": result.content[0].text}
 
-    async def extract_pdf_content(state: EventInfoState):
-        """
-        Extract PDF content if event identifier is a specific event ID.
-        """
-        # Check if the event identifier looks like an event ID (number)
-        if state["event_identifier"].isdigit():
-            try:
-                result = await state["session"].call_tool(
-                    "get_pdf_content", {"event_id": state["event_identifier"]}
-                )
-                return {"pdf_content": result.content[0].text}
-            except Exception as e:
-                return {"pdf_content": f"Error retrieving PDF content: {str(e)}"}
-        return {"pdf_content": ""}
+        event_id = result.content[0].text.strip()
 
-    async def structure_event_data(state: EventInfoState):
-        """
-        Structure the event data for analysis.
-        """
-        combined_data = state["found_documents"]
-        
-        # Include PDF content if available
-        if state["pdf_content"] and "PDF Content for Event" in state["pdf_content"]:
-            prompt = (
-                "Extract the most important insights from this PDF content. "
-                "Focus on key metrics, results, and technical details. "
-                "Limit your response to 3-5 key findings."
-            )
-            result = await llm.ainvoke([prompt, state["pdf_content"]])
-            pdf_insights = str(result.content) if hasattr(result, "content") else str(result)
-            
-            combined_data += f"\n\nPDF Key Insights:\n{pdf_insights}"
-            
-        prompt = (
-            "Structure the following event information into key categories: "
-            "event metadata, printing specifications, equipment settings, performance data, "
-            "and PDF insights if available. "
-            "Extract and organize all relevant details."
+        if not event_id:
+            raise ValueError("❌ No valid event ID found in the query.")
+
+        return {"event_identifier": event_id}
+
+    async def fetch_event_summary(state: EventInfoState):
+        result = await state["session"].call_tool(
+            "get_event_summary", {"query": state["query"]}
         )
-        result = await llm.ainvoke([prompt, combined_data])
-        return {
-            "structured_data": str(result.content)
-            if hasattr(result, "content")
-            else str(result)
-        }
+        return {"summary": result.content[0].text}
+    
+    async def generate_summary(state: EventInfoState):
+        prompt = f"""
+Summarize the following print event report for event ID {state['event_identifier']}.
+Include:
+- Press model
+- Media type and weight
+- Ink coverage
+- Equipment config
+- Performance results
 
-    async def generate_event_summary(state: EventInfoState):
-        """
-        Generate a comprehensive summary of the event.
-        """
-        prompt = (
-            "Create a comprehensive narrative summary of this printing event. "
-            "Include what happened, the printing specifications used, equipment configuration, "
-            "and any notable outcomes or results from both JSON data and PDF content if available. "
-            "Make it informative and easy to understand."
-        )
-        result = await llm.ainvoke([prompt, state["structured_data"]])
-        return {
-            "summary": str(result.content)
-            if hasattr(result, "content")
-            else str(result)
-        }
+Text:
+{state['chunks']}
+"""
+        result = await llm.ainvoke(prompt)
+        return {"summary": str(result.content)}
 
     workflow = StateGraph(EventInfoState)
-    workflow.add_node("extract_event_identifier", extract_event_identifier)
-    workflow.add_node("search_event_documents", search_event_documents)
-    workflow.add_node("extract_pdf_content", extract_pdf_content)
-    workflow.add_node("structure_event_data", structure_event_data)
-    workflow.add_node("generate_event_summary", generate_event_summary)
-
-    workflow.add_edge(START, "extract_event_identifier")
-    workflow.add_edge("extract_event_identifier", "search_event_documents")
-    workflow.add_edge("search_event_documents", "extract_pdf_content")
-    workflow.add_edge("extract_pdf_content", "structure_event_data")
-    workflow.add_edge("structure_event_data", "generate_event_summary")
-    workflow.add_edge("generate_event_summary", END)
+    workflow.add_node("extract_event_id", extract_event_id)
+    workflow.add_node("fetch_event_summary", fetch_event_summary)
+    workflow.add_edge(START, "extract_event_id")
+    workflow.add_edge("extract_event_id", "fetch_event_summary")
+    workflow.add_edge("fetch_event_summary", END)
 
     compiled = workflow.compile()
     if callbacks:
         compiled.callbacks = callbacks
     return compiled
+
+    # """
+    # Create a workflow for event information retrieval.
+
+    # Args:
+    #     callbacks: Callbacks for the graph.
+
+    # Returns:
+    #     Compiled workflow graph.
+    # """
+
+    # async def extract_event_identifier(state: EventInfoState):
+    #     """
+    #     Extract event identifier from the user's query.
+    #     """
+    #     prompt = (
+    #         "Extract the event identifier from this query. Look for event IDs, "
+    #         "event numbers, location names, or other identifying information. "
+    #         "Return just the key identifier (e.g., '71', 'Vegas expo', 'event_128')."
+    #     )
+    #     result = await llm.ainvoke([prompt, state["query"]])
+    #     return {
+    #         "event_identifier": str(result.content)
+    #         if hasattr(result, "content")
+    #         else str(result)
+    #     }
+
+    # async def search_event_documents(state: EventInfoState):
+    #     """
+    #     Search for documents related to the specific event.
+    #     """
+    #     result = await state["session"].call_tool(
+    #         "get_event_information", {"query": state["query"]}
+    #     )
+    #     return {"found_documents": result.content[0].text}
+
+    # async def extract_pdf_content(state: EventInfoState):
+    #     """
+    #     Extract PDF content if event identifier is a specific event ID.
+    #     """
+    #     # Check if the event identifier looks like an event ID (number)
+    #     if state["event_identifier"].isdigit():
+    #         try:
+    #             result = await state["session"].call_tool(
+    #                 "get_pdf_content", {"event_id": state["event_identifier"]}
+    #             )
+    #             return {"pdf_content": result.content[0].text}
+    #         except Exception as e:
+    #             return {"pdf_content": f"Error retrieving PDF content: {str(e)}"}
+    #     return {"pdf_content": ""}
+
+    # async def structure_event_data(state: EventInfoState):
+    #     """
+    #     Structure the event data for analysis.
+    #     """
+    #     combined_data = state["found_documents"]
+        
+    #     # Include PDF content if available
+    #     if state["pdf_content"] and "PDF Content for Event" in state["pdf_content"]:
+    #         prompt = (
+    #             "Extract the most important insights from this PDF content. "
+    #             "Focus on key metrics, results, and technical details. "
+    #             "Limit your response to 3-5 key findings."
+    #         )
+    #         result = await llm.ainvoke([prompt, state["pdf_content"]])
+    #         pdf_insights = str(result.content) if hasattr(result, "content") else str(result)
+            
+    #         combined_data += f"\n\nPDF Key Insights:\n{pdf_insights}"
+            
+    #     prompt = (
+    #         "Structure the following event information into key categories: "
+    #         "event metadata, printing specifications, equipment settings, performance data, "
+    #         "and PDF insights if available. "
+    #         "Extract and organize all relevant details."
+    #     )
+    #     result = await llm.ainvoke([prompt, combined_data])
+    #     return {
+    #         "structured_data": str(result.content)
+    #         if hasattr(result, "content")
+    #         else str(result)
+    #     }
+
+    # async def generate_event_summary(state: EventInfoState):
+    #     """
+    #     Generate a comprehensive summary of the event.
+    #     """
+    #     prompt = (
+    #         "Create a comprehensive narrative summary of this printing event. "
+    #         "Include what happened, the printing specifications used, equipment configuration, "
+    #         "and any notable outcomes or results from both JSON data and PDF content if available. "
+    #         "Make it informative and easy to understand."
+    #     )
+    #     result = await llm.ainvoke([prompt, state["structured_data"]])
+    #     return {
+    #         "summary": str(result.content)
+    #         if hasattr(result, "content")
+    #         else str(result)
+    #     }
+
+    # workflow = StateGraph(EventInfoState)
+    # workflow.add_node("extract_event_identifier", extract_event_identifier)
+    # workflow.add_node("search_event_documents", search_event_documents)
+    # workflow.add_node("extract_pdf_content", extract_pdf_content)
+    # workflow.add_node("structure_event_data", structure_event_data)
+    # workflow.add_node("generate_event_summary", generate_event_summary)
+
+    # workflow.add_edge(START, "extract_event_identifier")
+    # workflow.add_edge("extract_event_identifier", "search_event_documents")
+    # workflow.add_edge("search_event_documents", "extract_pdf_content")
+    # workflow.add_edge("extract_pdf_content", "structure_event_data")
+    # workflow.add_edge("structure_event_data", "generate_event_summary")
+    # workflow.add_edge("generate_event_summary", END)
+
+    # compiled = workflow.compile()
+    # if callbacks:
+    #     compiled.callbacks = callbacks
+    # return compiled
 
 class GeneralKnowledgeState(TypedDict):
     """
