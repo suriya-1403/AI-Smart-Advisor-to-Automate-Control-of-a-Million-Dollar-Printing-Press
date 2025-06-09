@@ -1,5 +1,21 @@
 """
-Tools for document search and management.
+Tools for document search and management in the MCP Server.
+
+This module implements advanced document search capabilities using BM25 ranking
+algorithm combined with intelligent filtering and LLM-enhanced query processing.
+It manages JSON printing event documents and provides sophisticated search
+functionality for finding relevant printing records.
+
+Key Features:
+- BM25 text ranking algorithm for relevance scoring
+- Condition-based filtering with structured parameters
+- GSM (media weight) proximity reranking
+- LLM-enhanced condition extraction from natural language
+- Comprehensive result formatting and presentation
+
+Author: Suriyakrishnan Sathish & Rujula More
+Version: 1.0.0
+Last Modified: 2024
 """
 
 import json
@@ -21,13 +37,26 @@ llm = ChatGroq(model=LLM_MODEL, api_key=GROQ_API)
 
 def load_json_data(file_path):
     """
-    Load a JSON document from file.
-
+    Load a JSON document from file with comprehensive error handling.
+    
+    This function safely loads JSON documents and handles various file
+    system and parsing errors that might occur during document loading.
+    
     Args:
-        file_path: Path to the JSON file.
-
+        file_path (str): Absolute path to the JSON file to load
+        
     Returns:
-        Loaded JSON data or None if failed.
+        Optional[Dict[str, Any]]: Loaded JSON data or None if loading failed
+        
+    Raises:
+        None: All exceptions are caught and logged, returns None on failure
+        
+    Example:
+        >>> data = load_json_data("/path/to/event_42.json")
+        >>> if data:
+        ...     print(f"Event ID: {data.get('event_id')}")
+        ... else:
+        ...     print("Failed to load document")
     """
     try:
         with open(file_path, "r") as file:
@@ -39,13 +68,27 @@ def load_json_data(file_path):
 
 def create_document_text(record):
     """
-    Convert JSON record to searchable text.
-
+    Convert JSON record to searchable text representation.
+    
+    This function creates a comprehensive text representation of a printing
+    event record that can be effectively searched using text-based algorithms.
+    
     Args:
-        record: Document record.
-
+        record (Dict[str, Any]): Document record containing printing event data
+        
     Returns:
-        Formatted text for search.
+        str: Formatted searchable text representation
+        
+    Example:
+        >>> record = {
+        ...     "event_id": "42",
+        ...     "location": "Las Vegas Expo",
+        ...     "Ink Coverage": "Heavy",
+        ...     "Media Weight GSM": "250"
+        ... }
+        >>> text = create_document_text(record)
+        >>> print(text)
+        'Event 42 on unknown at Las Vegas Expo. Printing with Heavy ink coverage...'
     """
     return (
         f"Event {record.get('event_id', 'unknown')} on {record.get('publish_date', 'unknown')} "
@@ -59,26 +102,45 @@ def create_document_text(record):
 
 def tokenize(text):
     """
-    Convert text to tokens for BM25.
-
+    Convert text to tokens for BM25 processing.
+    
+    This function performs text preprocessing including normalization,
+    punctuation removal, and tokenization for search algorithms.
+    
     Args:
-        text: Input text.
-
+        text (str): Input text to tokenize
+        
     Returns:
-        List of tokens.
+        List[str]: List of normalized tokens
+        
+    Example:
+        >>> tokens = tokenize("Heavy ink coverage on 250 GSM paper")
+        >>> print(tokens)
+        ['heavy', 'ink', 'coverage', 'on', '250', 'gsm', 'paper']
     """
     return re.sub(r"[^\w\s]", " ", text.lower()).split()
 
 
 def extract_gsm(gsm_value):
     """
-    Extract GSM value from string or number.
-
+    Extract GSM (media weight) value from various input formats.
+    
+    This function handles different representations of GSM values including
+    strings with units, plain numbers, and mixed formats.
+    
     Args:
-        gsm_value: GSM value as string or number.
-
+        gsm_value (Union[str, int, float]): GSM value in various formats
+        
     Returns:
-        Integer GSM value or None if not found.
+        Optional[int]: Extracted integer GSM value or None if extraction failed
+        
+    Example:
+        >>> extract_gsm("250 GSM")
+        250
+        >>> extract_gsm(175.5)
+        175
+        >>> extract_gsm("unknown")
+        None
     """
     if isinstance(gsm_value, str):
         match = re.search(r"\d+", gsm_value)
@@ -90,14 +152,24 @@ def extract_gsm(gsm_value):
 
 def is_strict_match(record, conditions):
     """
-    Check if a record matches all conditions.
-
+    Check if a record matches all specified conditions exactly.
+    
+    This function performs strict matching against all provided conditions,
+    requiring exact matches for categorical data and range matching for
+    numerical data where appropriate.
+    
     Args:
-        record: Document record.
-        conditions: Dictionary of conditions.
-
+        record (Dict[str, Any]): Document record to check
+        conditions (Dict[str, Any]): Dictionary of conditions to match
+        
     Returns:
-        True if record matches all conditions, False otherwise.
+        bool: True if record matches all conditions, False otherwise
+        
+    Example:
+        >>> record = {"Media Coating": "Coated", "Ink Coverage": "Heavy"}
+        >>> conditions = {"Media Coating": "Coated"}
+        >>> is_strict_match(record, conditions)
+        True
     """
     for key, expected in conditions.items():
         value = record.get(key)
@@ -116,15 +188,26 @@ def is_strict_match(record, conditions):
 
 def extract_conditions_with_llm(query: str) -> dict:
     """
-    Extract structured printing conditions from a user query using an LLM.
-
+    Extract structured printing conditions from a user query using LLM.
+    
+    This function uses a language model to parse natural language queries
+    and extract structured printing parameters that can be used for filtering.
+    
     Args:
-        query: User query string containing printing specifications.
-
+        query (str): User query string containing printing specifications
+        
     Returns:
-        Dictionary containing extracted printing conditions such as ink coverage,
-        media coating, media finish, and press model. Returns empty dict if
-        extraction fails.
+        Dict[str, Any]: Dictionary containing extracted printing conditions
+        
+    Raises:
+        Exception: If LLM service is unavailable or response parsing fails
+        
+    Example:
+        >>> conditions = extract_conditions_with_llm(
+        ...     "Find heavy ink coverage on glossy coated media"
+        ... )
+        >>> print(conditions)
+        {'Ink Coverage': 'Heavy', 'Media Coating': 'Coated', 'Media Finish': 'Glossy'}
     """
     prompt = f"""You are an assistant that extracts structured printing conditions from user queries.
      From the given query, identify any of the following conditions (if present):
@@ -200,16 +283,35 @@ def extract_conditions_with_llm(query: str) -> dict:
 
 
 class BM25:
-    """BM25 ranking algorithm implementation."""
-
+    """
+    BM25 ranking algorithm implementation for document relevance scoring.
+    
+    BM25 (Best Matching 25) is a probabilistic ranking function used to
+    estimate the relevance of documents to a given search query. This
+    implementation includes optimizations for printing document search.
+    
+    Attributes:
+        corpus (List[List[str]]): Tokenized documents corpus
+        k1 (float): Term frequency scaling parameter (default: 1.5)
+        b (float): Document length normalization parameter (default: 0.75)
+        corpus_size (int): Number of documents in corpus
+        avg_doc_len (float): Average document length in tokens
+        doc_freqs (List[Counter]): Term frequencies for each document
+        idf (Dict[str, float]): Inverse document frequency for each term
+        doc_lens (List[int]): Length of each document in tokens
+    """
     def __init__(self, corpus, k1=1.5, b=0.75):
         """
-        Initialize BM25.
-
+        Initialize BM25 with a tokenized corpus.
+        
         Args:
-            corpus: List of tokenized documents.
-            k1: Term frequency scaling parameter.
-            b: Document length scaling parameter.
+            corpus (List[List[str]]): List of tokenized documents
+            k1 (float): Controls term frequency saturation (default: 1.5)
+            b (float): Controls document length normalization (default: 0.75)
+            
+        Example:
+            >>> tokenized_docs = [['heavy', 'ink'], ['light', 'coverage']]
+            >>> bm25 = BM25(tokenized_docs)
         """
         self.corpus = corpus
         self.k1 = k1
@@ -225,7 +327,10 @@ class BM25:
 
     def _initialize(self):
         """
-        Initialize document frequencies and IDF values.
+        Initialize document frequencies and IDF (Inverse Document Frequency) values.
+        
+        This method computes term frequencies for each document and calculates
+        IDF values for all terms in the corpus.
         """
         for doc in self.corpus:
             self.doc_lens.append(len(doc))
@@ -239,13 +344,21 @@ class BM25:
 
     def get_scores(self, query):
         """
-        Get BM25 scores for a query.
-
+        Calculate BM25 scores for all documents given a query.
+        
+        This method computes relevance scores for each document in the corpus
+        based on the provided query terms using the BM25 algorithm.
+        
         Args:
-            query: Tokenized query.
-
+            query (List[str]): Tokenized query terms
+            
         Returns:
-            List of scores for each document.
+            List[float]: BM25 scores for each document (same order as corpus)
+            
+        Example:
+            >>> query_tokens = ['heavy', 'ink', 'coverage']
+            >>> scores = bm25.get_scores(query_tokens)
+            >>> best_doc_index = scores.index(max(scores))
         """
         scores = [0] * self.corpus_size
         for term in query:
@@ -300,10 +413,21 @@ bm25 = BM25(tokenized_corpus) if tokenized_corpus else None
 
 def setup_document_tools(mcp: FastMCP):
     """
-    Set up document tools for the MCP server.
-
+    Set up document search tools for the MCP server.
+    
+    This function registers all document-related tools and resources with the
+    MCP server, including search functionality and document management tools.
+    
     Args:
-        mcp: FastMCP server instance.
+        mcp (FastMCP): FastMCP server instance to register tools with
+        
+    Raises:
+        Exception: If tool registration fails or documents cannot be loaded
+        
+    Example:
+        >>> server = FastMCP("PrintSystem")
+        >>> setup_document_tools(server)
+        >>> print("Document tools registered successfully")
     """
     # Simple BM25 cache to store filtered BM25 instances
     bm25_cache = {}
@@ -331,15 +455,30 @@ def setup_document_tools(mcp: FastMCP):
         query: str, target_gsm: int = None, conditions: dict = None
     ) -> str:
         """
-        Find relevant documents using BM25 ranking with optional filtering.
-
+        Find relevant documents using BM25 ranking with optional filtering and reranking.
+        
+        This tool provides sophisticated document search capabilities including:
+        - BM25 relevance scoring for text matching
+        - Condition-based filtering for structured parameters
+        - GSM proximity reranking for media weight optimization
+        - LLM-enhanced condition extraction from natural language
+        
         Args:
-            query: Search query.
-            target_gsm: Target GSM value for reranking.
-            conditions: Dictionary of filtering conditions.
-
+            query (str): Natural language search query
+            target_gsm (Optional[int]): Target GSM value for proximity reranking
+            conditions (Optional[Dict[str, Any]]): Explicit filtering conditions
+            
         Returns:
-            String with search results.
+            str: Formatted search results with document details
+            
+        Example Usage:
+            >>> result = find_document("heavy ink coverage on glossy media")
+            >>> print(result)
+            
+        Query Examples:
+            - "Find prints with heavy ink coverage on glossy media"
+            - "Show me T490 printer events using 250 GSM paper"
+            - "Las Vegas expo printing events with coated media"
         """
         if not documents:
             return "No documents available for search"
@@ -434,10 +573,17 @@ def setup_document_tools(mcp: FastMCP):
     @mcp.resource("documents://list")
     def list_documents() -> str:
         """
-        List available documents that can be searched.
-
+        List all available documents that can be searched.
+        
+        This resource provides an overview of all loaded printing event documents
+        including basic metadata for each document.
+        
         Returns:
-            String with list of documents.
+            str: Formatted list of available documents
+            
+        Example:
+            >>> docs = list_documents()
+            >>> print(docs)
         """
         if not documents:
             return "No documents available"
@@ -455,10 +601,17 @@ def setup_document_tools(mcp: FastMCP):
     @mcp.resource("documents://parameters")
     def list_parameters() -> str:
         """
-        List available parameters for filtering documents.
-
+        List all available parameters that can be used for filtering documents.
+        
+        This resource shows all unique parameter values found in the document
+        corpus, which can be used for targeted searches and filtering.
+        
         Returns:
-            String with list of parameters.
+            str: Formatted list of searchable parameters and their values
+            
+        Example:
+            >>> params = list_parameters()
+            >>> print(params)
         """
         param_values = {}
 

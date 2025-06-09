@@ -1,5 +1,20 @@
+
 """
-Query router for determining task type.
+Query router for determining task type and routing requests to appropriate workflows.
+
+This module implements an intelligent query classification system that analyzes user
+input and determines which processing pipeline should handle the request. It uses
+LLM-based classification combined with pattern matching for reliable routing.
+
+The router supports four main task types:
+- Document search: Finding relevant printing event documents
+- Ruleset evaluation: Calculating optimal printer configurations
+- Event information: Retrieving specific event details and reports
+- General knowledge: Educational responses about printing concepts
+
+Author: Suriyakrishnan Sathish & Rujula More
+Version: 1.0.0
+Last Modified: 2025
 """
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -15,7 +30,15 @@ from mcp_server.config import GROQ_API, LLM_MODEL
 # Define state
 class State(TypedDict):
     """
-    State type for the query router.
+    State type for the query router workflow.
+    
+    This TypedDict defines the structure of data that flows through the
+    router's state graph during query processing.
+    
+    Attributes:
+        query (str): The original user query to be classified
+        task_type (str): The determined task type after classification
+        result (str): Final routing result or error message
     """
 
     query: str
@@ -25,14 +48,24 @@ class State(TypedDict):
 
 def create_router(callbacks=None):
     """
-    Create a router graph to determine query type.
-
+    Create a router graph to determine query type and route to appropriate workflow.
+    
+    This function builds a LangGraph state machine that uses LLM-based classification
+    combined with pattern matching to reliably route user queries to the correct
+    processing pipeline.
+    
     Args:
-        callbacks: Callbacks for the graph.
-
+        callbacks: Optional callbacks for graph execution monitoring and debugging
+        
     Returns:
-        Compiled router graph.
+        Compiled router graph ready for query processing
+        
+    Raises:
+        ConnectionError: If unable to connect to Groq LLM service
+        ValueError: If invalid configuration parameters provided
+        
     """
+
     # Setup LLM
     # llm = OllamaLLM(model=LLM_MODEL)
     llm = ChatGroq(model=LLM_MODEL, api_key=GROQ_API)
@@ -40,8 +73,25 @@ def create_router(callbacks=None):
     # Define classifier node
     def classify_query(state: State):
         """
-        Classify if this is a document search or ruleset evaluation.
+        Classify user query into one of four task types using LLM and pattern matching.
+        
+        This function combines LLM-based semantic understanding with rule-based
+        pattern matching to provide reliable query classification.
+        
+        Args:
+            state (State): Current state containing the user query
+            
+        Returns:
+            Dict[str, str]: Updated state with determined task_type
+            
+        Classification Types:
+            - document_search: Finding relevant documents from collections
+            - ruleset_evaluation: Calculating printer settings based on rules
+            - event_information: Retrieving specific event details
+            - general_knowledge: Educational responses about printing concepts
+
         """
+
         system_prompt = """
         You are a classifier that determines whether a user query is about:
 

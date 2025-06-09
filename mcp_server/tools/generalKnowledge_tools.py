@@ -1,6 +1,23 @@
 """
-Tools for general knowledge responses about printing concepts.
+General knowledge tools for HP PageWide printing concepts and educational responses.
+
+This module provides comprehensive educational support for printing concepts,
+media types, equipment operations, and HP PageWide technology. It uses advanced
+LLM processing to deliver expert-level explanations tailored for technical users.
+
+Key Features:
+- Expert-level printing concept explanations
+- Technical specification guidance
+- Best practices and recommendations
+- Troubleshooting and optimization advice
+- Comprehensive response formatting and cleanup
+- Educational content organization and presentation
+
+Author: AI Smart Advisor Team
+Version: 1.0.0
+Last Modified: 2024
 """
+
 
 import re
 from typing import Any, Dict
@@ -13,13 +30,29 @@ from mcp_server.config import GROQ_API, LLM_MODEL
 
 def clean_response(response_text: str) -> str:
     """
-    Clean up a knowledge response by removing duplicate or generic sections.
-
+    Clean up LLM knowledge responses by removing duplicate or generic sections.
+    
+    This function post-processes LLM responses to remove common artifacts like
+    redundant headers, generic placeholder text, and formatting inconsistencies
+    that can occur in automated response generation.
+    
     Args:
-        response_text: Raw response text from the LLM.
-
+        response_text (str): Raw response text from the LLM
+        
     Returns:
-        Cleaned response text.
+        str: Cleaned and formatted response text
+        
+    Cleaning Operations:
+        - Remove redundant "Knowledge Response" headers
+        - Strip generic fallback content
+        - Clean up formatting prefixes
+        - Normalize whitespace and line breaks
+        
+    Example:
+        >>> raw_response = "Knowledge Response\\n\\n**Answer:**\\nExplanation here..."
+        >>> cleaned = clean_response(raw_response)
+        >>> print(cleaned)
+        'Explanation here...'
     """
     # Remove any "Knowledge Response" header that might be present
     response_text = re.sub(
@@ -44,9 +77,31 @@ def clean_response(response_text: str) -> str:
 def setup_general_knowledge_tools(mcp: FastMCP):
     """
     Set up general knowledge tools for the MCP server.
-
+    
+    This function registers comprehensive educational tools that provide expert-level
+    responses about HP PageWide printing concepts, technical specifications, and
+    operational guidance.
+    
     Args:
-        mcp: FastMCP server instance.
+        mcp (FastMCP): FastMCP server instance to register tools with
+        
+    Raises:
+        Exception: If tool registration fails
+        
+    Registered Tools:
+        - answer_general_question: Comprehensive educational responses
+        - validate_printing_question: Query validation utility
+        - get_topic_category: Query categorization utility
+        
+    Registered Resources:
+        - knowledge://topics: Available knowledge topics
+        - knowledge://examples: Example questions
+        - knowledge://categories: Topic categorization guide
+        
+    Example:
+        >>> server = FastMCP("PrintSystem")
+        >>> setup_general_knowledge_tools(server)
+        >>> print("Knowledge tools registered successfully")
     """
 
     @mcp.tool()
@@ -54,13 +109,33 @@ def setup_general_knowledge_tools(mcp: FastMCP):
         """
         Answer general knowledge questions about printing concepts, media types,
         ink coverage, press operations, and HP PageWide technology.
-
+        
+        This tool provides comprehensive educational responses covering all aspects
+        of HP PageWide printing technology, from basic concepts to advanced
+        technical specifications and optimization strategies.
+        
         Args:
-            query: User's question about printing concepts.
-
+            query (str): User's question about printing concepts
+            
         Returns:
-            Comprehensive educational response with proper formatting.
+            str: Comprehensive educational response with proper formatting
+            
+        Capabilities:
+            - Technical concept explanations
+            - Equipment operation guidance
+            - Media specification details
+            - Best practices and recommendations
+            - Troubleshooting and optimization advice
+            - Comparative analysis and decision support
+            
+        Query Examples:
+            - "Explain the difference between coated and uncoated media"
+            - "How does heavy ink coverage affect media requirements?"
+            - "What's the relationship between press speed and dryer power?"
+            - "When should I use different quality modes?"
+            - "How do winder tensions affect print quality?"
         """
+
 
         llm = ChatGroq(model=LLM_MODEL, api_key=GROQ_API)
 
@@ -141,10 +216,17 @@ def setup_general_knowledge_tools(mcp: FastMCP):
     @mcp.resource("knowledge://topics")
     def list_knowledge_topics() -> str:
         """
-        List available knowledge topics that can be explained.
-
+        List comprehensive knowledge topics that can be explained by the system.
+        
+        This resource provides a detailed overview of all printing concepts,
+        technologies, and operational areas covered by the knowledge system.
+        
         Returns:
-            List of topics the system can explain.
+            str: Organized list of available topics with examples
+            
+        Example:
+            >>> topics = list_knowledge_topics()
+            >>> print(topics)
         """
         topics = [
             "Media Types and Coatings",
@@ -179,10 +261,17 @@ def setup_general_knowledge_tools(mcp: FastMCP):
     @mcp.resource("knowledge://examples")
     def get_example_questions() -> str:
         """
-        Get example questions that can be answered.
-
+        Get comprehensive example questions organized by topic category.
+        
+        This resource provides users with specific examples of questions
+        that can be effectively answered by the knowledge system.
+        
         Returns:
-            List of example questions.
+            str: Categorized list of example questions
+            
+        Example:
+            >>> examples = get_example_questions()
+            >>> print(examples)
         """
         examples = [
             "How does heavy ink coverage affect media requirements?",

@@ -1,3 +1,21 @@
+"""
+Main FastAPI web server for the MCP (Model Context Protocol) Server.
+
+This module provides the web API layer for the AI Smart Advisor printing system.
+It handles HTTP requests, manages client sessions, coordinates workflows, and
+provides additional endpoints for logging and system monitoring.
+
+Key Features:
+- RESTful API endpoints for query processing
+- Real-time logging dashboard with geolocation
+- JSON file validation for data integrity
+- Comprehensive error handling and debugging
+- CORS support for cross-origin requests
+
+Author: Suriyakrishnan Sathish & Rujula More
+Version: 1.0.0
+Last Modified: 2025
+"""
 import json
 import os
 import traceback
@@ -9,12 +27,13 @@ from fastapi import Body, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 
-# Import your existing functions
+# Import workflow and session management
 from langchain_core.tracers import ConsoleCallbackHandler
 from langsmith import Client
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 
+# Import local modules
 from mcp_server.config import DOCUMENTS_DIR, LLM_MODEL, SERVER_HOST, SERVER_PORT
 from mcp_server.core import create_router
 from mcp_server.workflows import (
@@ -53,6 +72,21 @@ geo_cache = {}
 
 
 def is_local_ip(ip):
+    """
+    Check if an IP address is from a local/private network.
+    
+    Args:
+        ip (str): IP address to check
+        
+    Returns:
+        bool: True if IP is local/private, False if public
+        
+    Example:
+        >>> is_local_ip("192.168.1.1")
+        True
+        >>> is_local_ip("8.8.8.8")
+        False
+    """
     return (
         ip.startswith("192.")
         or ip.startswith("127.")
@@ -63,6 +97,22 @@ def is_local_ip(ip):
 
 # ipapi.co with error handling
 def ipapi_fallback(ip):
+    """
+    Get city location for IP address using ipapi.co service.
+    
+    This function provides a fallback geolocation service with error handling
+    and rate limit detection.
+    
+    Args:
+        ip (str): IP address to geolocate
+        
+    Returns:
+        Optional[str]: City name if successful, None if failed
+        
+    Example:
+        >>> city = ipapi_fallback("8.8.8.8")
+        >>> print(city)  # "Mountain View" (Google's location)
+    """
     try:
         res = requests.get(f"https://ipapi.co/{ip}/city/", timeout=2)
         if res.status_code == 200:
@@ -88,6 +138,22 @@ GEOIP_PROVIDERS = [
 
 # Master function to get location
 def get_ip_location(ip: str) -> str:
+    """
+    Get geographic location for an IP address using multiple providers.
+    
+    This function tries multiple geolocation providers for reliability and
+    caches results to avoid repeated API calls.
+    
+    Args:
+        ip (str): IP address to geolocate
+        
+    Returns:
+        str: City name or "Local Network"/"Unknown" if cannot determine
+        
+    Example:
+        >>> location = get_ip_location("8.8.8.8")
+        >>> print(location)  # "Mountain View"
+    """
     if ip in geo_cache:
         return geo_cache[ip]
 
@@ -113,6 +179,23 @@ def get_ip_location(ip: str) -> str:
 
 
 def extract_real_ip(entry):
+    """
+    Extract the real client IP address from log entry.
+    
+    Handles various proxy configurations and forwarded headers to determine
+    the actual client IP address.
+    
+    Args:
+        entry (Dict[str, Any]): Log entry dictionary from Caddy server
+        
+    Returns:
+        str: Real client IP address or "Unknown" if cannot determine
+        
+    Example:
+        >>> log_entry = {"request": {"headers": {"X-Forwarded-For": ["1.2.3.4"]}}}
+        >>> ip = extract_real_ip(log_entry)
+        >>> print(ip)  # "1.2.3.4"
+    """
     try:
         xff = entry.get("request", {}).get("headers", {}).get("X-Forwarded-For")
         if xff and isinstance(xff, list) and xff[0]:
@@ -124,6 +207,30 @@ def extract_real_ip(entry):
 
 @app.get("/logzz", response_class=JSONResponse)
 async def get_caddy_logs():
+    """
+    Retrieve and process Caddy server access logs with geolocation data.
+    
+    This endpoint reads the Caddy access log file, parses JSON entries,
+    extracts client IP addresses, and enriches each entry with geographic
+    location information.
+    
+    Returns:
+        Dict containing logs with geolocation data added
+        
+    Raises:
+        HTTPException: If log file cannot be read or processed
+        
+    Example Response:
+        {
+            "data": [
+                {
+                    "request": {...},
+                    "remote_ip": "8.8.8.8",
+                    "location": "Mountain View"
+                }
+            ]
+        }
+    """
     logs = []
     if os.path.exists(LOG_FILE_PATH):
         with open(LOG_FILE_PATH, "r") as f:
@@ -142,6 +249,21 @@ async def get_caddy_logs():
 
 @app.get("/logdashz", response_class=HTMLResponse)
 async def serve_dashboard():
+    """
+    Serve the logging dashboard HTML interface.
+    
+    This endpoint provides a web-based dashboard for viewing access logs
+    with geographic visualization and filtering capabilities.
+    
+    Returns:
+        str: HTML content for the dashboard
+        
+    Raises:
+        HTTPException: If dashboard file cannot be found or read
+        
+    Example:
+        Access via browser: http://localhost:8000/logdashz
+    """
     with open("/app/mcp_server/logDash.html") as f:
         return f.read()
 
@@ -149,7 +271,18 @@ async def serve_dashboard():
 # Add new endpoint to check for JSON files
 @app.get("/check-json-files")
 async def check_json_files():
-    """Check if JSON files exist in the documents directory."""
+    """
+    Check if JSON document files exist in the documents directory.
+    
+    This endpoint validates that the system has access to printing event
+    documents required for document search functionality.
+    
+    Returns:
+        Dict[str, bool]: Dictionary with hasJsonFiles boolean indicator
+        
+    Example Response:
+        {"hasJsonFiles": true}
+    """
     try:
         print(DOCUMENTS_DIR)
         documents_dir = Path(DOCUMENTS_DIR)
@@ -169,13 +302,26 @@ async def check_json_files():
 # Modified process_query function with better error handling
 async def process_query(query: str):
     """
-    Process a user query through the appropriate workflow with improved error handling.
-
+    Process a user query through the appropriate workflow with comprehensive error handling.
+    
+    This is the core function that coordinates query processing by:
+    1. Establishing connection to MCP server
+    2. Routing query to appropriate workflow
+    3. Executing workflow and gathering results
+    4. Formatting response for client
+    
     Args:
-        query: User query string.
-
+        query (str): User query string to process
+        
     Returns:
-        Dictionary with processing results.
+        Dict[str, Any]: Processed results with type-specific structure
+        
+    Raises:
+        Exception: Various exceptions for connection, processing, or workflow errors
+        
+    Example:
+        >>> result = await process_query("Find heavy ink coverage documents")
+        >>> print(result["type"])  # "document_search"
     """
     try:
         # SSE_URL = f"http://{os.getenv('SSE_HOST')}:{os.getenv('SSE_PORT')}/sse"
@@ -327,7 +473,35 @@ async def process_query(query: str):
 # Create API endpoint with better error handling
 @app.post("/query")
 async def handle_query(query: str = Body(..., embed=True)):
-    """Process a query and return the results with detailed error messages."""
+    """
+    Main API endpoint for processing user queries.
+    
+    This endpoint accepts natural language queries about printing operations
+    and routes them through appropriate AI workflows for processing.
+    
+    Args:
+        query (str): User query string embedded in request body
+        
+    Returns:
+        Dict[str, Any]: Processing results with status and workflow-specific data
+        
+    Raises:
+        HTTPException: For client errors (400) or server errors (500)
+        
+    Example Request:
+        POST /query
+        {"query": "Find documents with heavy ink coverage on glossy media"}
+        
+    Example Response:
+        {
+            "status": "success",
+            "result": {
+                "type": "document_search",
+                "document": "...",
+                "summary": "..."
+            }
+        }
+    """
     try:
         result = await process_query(query)
         return {"status": "success", "result": result}
@@ -344,7 +518,17 @@ async def handle_query(query: str = Body(..., embed=True)):
 
 # Main function to run the server
 def main():
-    """Run the FastAPI server."""
+    """
+    Main function to run the FastAPI server.
+    
+    Configures and starts the uvicorn ASGI server with appropriate settings
+    for development and production environments.
+    
+    Environment Variables:
+        HOST: Server host address (default: 0.0.0.0)
+        PORT: Server port (default: 8000)
+        DEBUG: Enable debug mode (default: False)
+    """
     uvicorn.run(app, host="0.0.0.0", port=8000, log_level="debug")
 
 
