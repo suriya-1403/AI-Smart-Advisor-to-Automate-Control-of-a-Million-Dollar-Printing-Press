@@ -1,4 +1,3 @@
-
 """
 Query router for determining task type and routing requests to appropriate workflows.
 
@@ -31,10 +30,10 @@ from mcp_server.config import GROQ_API, LLM_MODEL
 class State(TypedDict):
     """
     State type for the query router workflow.
-    
+
     This TypedDict defines the structure of data that flows through the
     router's state graph during query processing.
-    
+
     Attributes:
         query (str): The original user query to be classified
         task_type (str): The determined task type after classification
@@ -49,21 +48,21 @@ class State(TypedDict):
 def create_router(callbacks=None):
     """
     Create a router graph to determine query type and route to appropriate workflow.
-    
+
     This function builds a LangGraph state machine that uses LLM-based classification
     combined with pattern matching to reliably route user queries to the correct
     processing pipeline.
-    
+
     Args:
         callbacks: Optional callbacks for graph execution monitoring and debugging
-        
+
     Returns:
         Compiled router graph ready for query processing
-        
+
     Raises:
         ConnectionError: If unable to connect to Groq LLM service
         ValueError: If invalid configuration parameters provided
-        
+
     """
 
     # Setup LLM
@@ -74,16 +73,16 @@ def create_router(callbacks=None):
     def classify_query(state: State):
         """
         Classify user query into one of four task types using LLM and pattern matching.
-        
+
         This function combines LLM-based semantic understanding with rule-based
         pattern matching to provide reliable query classification.
-        
+
         Args:
             state (State): Current state containing the user query
-            
+
         Returns:
             Dict[str, str]: Updated state with determined task_type
-            
+
         Classification Types:
             - document_search: Finding relevant documents from collections
             - ruleset_evaluation: Calculating printer settings based on rules

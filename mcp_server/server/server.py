@@ -1,4 +1,3 @@
-
 """
 MCP (Model Context Protocol) Server implementation.
 
@@ -31,21 +30,21 @@ from mcp_server.tools import (
 def create_server():
     """
     Create and configure the complete MCP server instance.
-    
+
     This function orchestrates the entire server creation process including:
     1. Server instance creation
     2. Tool module registration
     3. Error handling setup
     4. Middleware configuration
     5. Lifecycle hook registration
-    
+
     Returns:
         FastMCP: Fully configured MCP server ready for startup
-        
+
     Raises:
         EnvironmentError: If server configuration is invalid
         ImportError: If required dependencies are missing
-        
+
     Example:
         >>> server = create_server()
         >>> server.run()

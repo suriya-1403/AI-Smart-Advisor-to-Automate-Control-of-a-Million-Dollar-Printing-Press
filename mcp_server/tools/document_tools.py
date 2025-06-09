@@ -38,19 +38,19 @@ llm = ChatGroq(model=LLM_MODEL, api_key=GROQ_API)
 def load_json_data(file_path):
     """
     Load a JSON document from file with comprehensive error handling.
-    
+
     This function safely loads JSON documents and handles various file
     system and parsing errors that might occur during document loading.
-    
+
     Args:
         file_path (str): Absolute path to the JSON file to load
-        
+
     Returns:
         Optional[Dict[str, Any]]: Loaded JSON data or None if loading failed
-        
+
     Raises:
         None: All exceptions are caught and logged, returns None on failure
-        
+
     Example:
         >>> data = load_json_data("/path/to/event_42.json")
         >>> if data:
@@ -69,16 +69,16 @@ def load_json_data(file_path):
 def create_document_text(record):
     """
     Convert JSON record to searchable text representation.
-    
+
     This function creates a comprehensive text representation of a printing
     event record that can be effectively searched using text-based algorithms.
-    
+
     Args:
         record (Dict[str, Any]): Document record containing printing event data
-        
+
     Returns:
         str: Formatted searchable text representation
-        
+
     Example:
         >>> record = {
         ...     "event_id": "42",
@@ -103,16 +103,16 @@ def create_document_text(record):
 def tokenize(text):
     """
     Convert text to tokens for BM25 processing.
-    
+
     This function performs text preprocessing including normalization,
     punctuation removal, and tokenization for search algorithms.
-    
+
     Args:
         text (str): Input text to tokenize
-        
+
     Returns:
         List[str]: List of normalized tokens
-        
+
     Example:
         >>> tokens = tokenize("Heavy ink coverage on 250 GSM paper")
         >>> print(tokens)
@@ -124,16 +124,16 @@ def tokenize(text):
 def extract_gsm(gsm_value):
     """
     Extract GSM (media weight) value from various input formats.
-    
+
     This function handles different representations of GSM values including
     strings with units, plain numbers, and mixed formats.
-    
+
     Args:
         gsm_value (Union[str, int, float]): GSM value in various formats
-        
+
     Returns:
         Optional[int]: Extracted integer GSM value or None if extraction failed
-        
+
     Example:
         >>> extract_gsm("250 GSM")
         250
@@ -153,18 +153,18 @@ def extract_gsm(gsm_value):
 def is_strict_match(record, conditions):
     """
     Check if a record matches all specified conditions exactly.
-    
+
     This function performs strict matching against all provided conditions,
     requiring exact matches for categorical data and range matching for
     numerical data where appropriate.
-    
+
     Args:
         record (Dict[str, Any]): Document record to check
         conditions (Dict[str, Any]): Dictionary of conditions to match
-        
+
     Returns:
         bool: True if record matches all conditions, False otherwise
-        
+
     Example:
         >>> record = {"Media Coating": "Coated", "Ink Coverage": "Heavy"}
         >>> conditions = {"Media Coating": "Coated"}
@@ -189,19 +189,19 @@ def is_strict_match(record, conditions):
 def extract_conditions_with_llm(query: str) -> dict:
     """
     Extract structured printing conditions from a user query using LLM.
-    
+
     This function uses a language model to parse natural language queries
     and extract structured printing parameters that can be used for filtering.
-    
+
     Args:
         query (str): User query string containing printing specifications
-        
+
     Returns:
         Dict[str, Any]: Dictionary containing extracted printing conditions
-        
+
     Raises:
         Exception: If LLM service is unavailable or response parsing fails
-        
+
     Example:
         >>> conditions = extract_conditions_with_llm(
         ...     "Find heavy ink coverage on glossy coated media"
@@ -285,11 +285,11 @@ def extract_conditions_with_llm(query: str) -> dict:
 class BM25:
     """
     BM25 ranking algorithm implementation for document relevance scoring.
-    
+
     BM25 (Best Matching 25) is a probabilistic ranking function used to
     estimate the relevance of documents to a given search query. This
     implementation includes optimizations for printing document search.
-    
+
     Attributes:
         corpus (List[List[str]]): Tokenized documents corpus
         k1 (float): Term frequency scaling parameter (default: 1.5)
@@ -300,15 +300,16 @@ class BM25:
         idf (Dict[str, float]): Inverse document frequency for each term
         doc_lens (List[int]): Length of each document in tokens
     """
+
     def __init__(self, corpus, k1=1.5, b=0.75):
         """
         Initialize BM25 with a tokenized corpus.
-        
+
         Args:
             corpus (List[List[str]]): List of tokenized documents
             k1 (float): Controls term frequency saturation (default: 1.5)
             b (float): Controls document length normalization (default: 0.75)
-            
+
         Example:
             >>> tokenized_docs = [['heavy', 'ink'], ['light', 'coverage']]
             >>> bm25 = BM25(tokenized_docs)
@@ -328,7 +329,7 @@ class BM25:
     def _initialize(self):
         """
         Initialize document frequencies and IDF (Inverse Document Frequency) values.
-        
+
         This method computes term frequencies for each document and calculates
         IDF values for all terms in the corpus.
         """
@@ -345,16 +346,16 @@ class BM25:
     def get_scores(self, query):
         """
         Calculate BM25 scores for all documents given a query.
-        
+
         This method computes relevance scores for each document in the corpus
         based on the provided query terms using the BM25 algorithm.
-        
+
         Args:
             query (List[str]): Tokenized query terms
-            
+
         Returns:
             List[float]: BM25 scores for each document (same order as corpus)
-            
+
         Example:
             >>> query_tokens = ['heavy', 'ink', 'coverage']
             >>> scores = bm25.get_scores(query_tokens)
@@ -414,16 +415,16 @@ bm25 = BM25(tokenized_corpus) if tokenized_corpus else None
 def setup_document_tools(mcp: FastMCP):
     """
     Set up document search tools for the MCP server.
-    
+
     This function registers all document-related tools and resources with the
     MCP server, including search functionality and document management tools.
-    
+
     Args:
         mcp (FastMCP): FastMCP server instance to register tools with
-        
+
     Raises:
         Exception: If tool registration fails or documents cannot be loaded
-        
+
     Example:
         >>> server = FastMCP("PrintSystem")
         >>> setup_document_tools(server)
@@ -456,25 +457,25 @@ def setup_document_tools(mcp: FastMCP):
     ) -> str:
         """
         Find relevant documents using BM25 ranking with optional filtering and reranking.
-        
+
         This tool provides sophisticated document search capabilities including:
         - BM25 relevance scoring for text matching
         - Condition-based filtering for structured parameters
         - GSM proximity reranking for media weight optimization
         - LLM-enhanced condition extraction from natural language
-        
+
         Args:
             query (str): Natural language search query
             target_gsm (Optional[int]): Target GSM value for proximity reranking
             conditions (Optional[Dict[str, Any]]): Explicit filtering conditions
-            
+
         Returns:
             str: Formatted search results with document details
-            
+
         Example Usage:
             >>> result = find_document("heavy ink coverage on glossy media")
             >>> print(result)
-            
+
         Query Examples:
             - "Find prints with heavy ink coverage on glossy media"
             - "Show me T490 printer events using 250 GSM paper"
@@ -574,13 +575,13 @@ def setup_document_tools(mcp: FastMCP):
     def list_documents() -> str:
         """
         List all available documents that can be searched.
-        
+
         This resource provides an overview of all loaded printing event documents
         including basic metadata for each document.
-        
+
         Returns:
             str: Formatted list of available documents
-            
+
         Example:
             >>> docs = list_documents()
             >>> print(docs)
@@ -602,13 +603,13 @@ def setup_document_tools(mcp: FastMCP):
     def list_parameters() -> str:
         """
         List all available parameters that can be used for filtering documents.
-        
+
         This resource shows all unique parameter values found in the document
         corpus, which can be used for targeted searches and filtering.
-        
+
         Returns:
             str: Formatted list of searchable parameters and their values
-            
+
         Example:
             >>> params = list_parameters()
             >>> print(params)

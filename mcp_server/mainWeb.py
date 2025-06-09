@@ -74,13 +74,13 @@ geo_cache = {}
 def is_local_ip(ip):
     """
     Check if an IP address is from a local/private network.
-    
+
     Args:
         ip (str): IP address to check
-        
+
     Returns:
         bool: True if IP is local/private, False if public
-        
+
     Example:
         >>> is_local_ip("192.168.1.1")
         True
@@ -99,16 +99,16 @@ def is_local_ip(ip):
 def ipapi_fallback(ip):
     """
     Get city location for IP address using ipapi.co service.
-    
+
     This function provides a fallback geolocation service with error handling
     and rate limit detection.
-    
+
     Args:
         ip (str): IP address to geolocate
-        
+
     Returns:
         Optional[str]: City name if successful, None if failed
-        
+
     Example:
         >>> city = ipapi_fallback("8.8.8.8")
         >>> print(city)  # "Mountain View" (Google's location)
@@ -140,16 +140,16 @@ GEOIP_PROVIDERS = [
 def get_ip_location(ip: str) -> str:
     """
     Get geographic location for an IP address using multiple providers.
-    
+
     This function tries multiple geolocation providers for reliability and
     caches results to avoid repeated API calls.
-    
+
     Args:
         ip (str): IP address to geolocate
-        
+
     Returns:
         str: City name or "Local Network"/"Unknown" if cannot determine
-        
+
     Example:
         >>> location = get_ip_location("8.8.8.8")
         >>> print(location)  # "Mountain View"
@@ -181,16 +181,16 @@ def get_ip_location(ip: str) -> str:
 def extract_real_ip(entry):
     """
     Extract the real client IP address from log entry.
-    
+
     Handles various proxy configurations and forwarded headers to determine
     the actual client IP address.
-    
+
     Args:
         entry (Dict[str, Any]): Log entry dictionary from Caddy server
-        
+
     Returns:
         str: Real client IP address or "Unknown" if cannot determine
-        
+
     Example:
         >>> log_entry = {"request": {"headers": {"X-Forwarded-For": ["1.2.3.4"]}}}
         >>> ip = extract_real_ip(log_entry)
@@ -209,17 +209,17 @@ def extract_real_ip(entry):
 async def get_caddy_logs():
     """
     Retrieve and process Caddy server access logs with geolocation data.
-    
+
     This endpoint reads the Caddy access log file, parses JSON entries,
     extracts client IP addresses, and enriches each entry with geographic
     location information.
-    
+
     Returns:
         Dict containing logs with geolocation data added
-        
+
     Raises:
         HTTPException: If log file cannot be read or processed
-        
+
     Example Response:
         {
             "data": [
@@ -251,16 +251,16 @@ async def get_caddy_logs():
 async def serve_dashboard():
     """
     Serve the logging dashboard HTML interface.
-    
+
     This endpoint provides a web-based dashboard for viewing access logs
     with geographic visualization and filtering capabilities.
-    
+
     Returns:
         str: HTML content for the dashboard
-        
+
     Raises:
         HTTPException: If dashboard file cannot be found or read
-        
+
     Example:
         Access via browser: http://localhost:8000/logdashz
     """
@@ -273,13 +273,13 @@ async def serve_dashboard():
 async def check_json_files():
     """
     Check if JSON document files exist in the documents directory.
-    
+
     This endpoint validates that the system has access to printing event
     documents required for document search functionality.
-    
+
     Returns:
         Dict[str, bool]: Dictionary with hasJsonFiles boolean indicator
-        
+
     Example Response:
         {"hasJsonFiles": true}
     """
@@ -303,22 +303,22 @@ async def check_json_files():
 async def process_query(query: str):
     """
     Process a user query through the appropriate workflow with comprehensive error handling.
-    
+
     This is the core function that coordinates query processing by:
     1. Establishing connection to MCP server
     2. Routing query to appropriate workflow
     3. Executing workflow and gathering results
     4. Formatting response for client
-    
+
     Args:
         query (str): User query string to process
-        
+
     Returns:
         Dict[str, Any]: Processed results with type-specific structure
-        
+
     Raises:
         Exception: Various exceptions for connection, processing, or workflow errors
-        
+
     Example:
         >>> result = await process_query("Find heavy ink coverage documents")
         >>> print(result["type"])  # "document_search"
@@ -475,23 +475,23 @@ async def process_query(query: str):
 async def handle_query(query: str = Body(..., embed=True)):
     """
     Main API endpoint for processing user queries.
-    
+
     This endpoint accepts natural language queries about printing operations
     and routes them through appropriate AI workflows for processing.
-    
+
     Args:
         query (str): User query string embedded in request body
-        
+
     Returns:
         Dict[str, Any]: Processing results with status and workflow-specific data
-        
+
     Raises:
         HTTPException: For client errors (400) or server errors (500)
-        
+
     Example Request:
         POST /query
         {"query": "Find documents with heavy ink coverage on glossy media"}
-        
+
     Example Response:
         {
             "status": "success",
@@ -520,10 +520,10 @@ async def handle_query(query: str = Body(..., embed=True)):
 def main():
     """
     Main function to run the FastAPI server.
-    
+
     Configures and starts the uvicorn ASGI server with appropriate settings
     for development and production environments.
-    
+
     Environment Variables:
         HOST: Server host address (default: 0.0.0.0)
         PORT: Server port (default: 8000)

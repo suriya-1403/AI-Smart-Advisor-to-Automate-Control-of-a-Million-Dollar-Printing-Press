@@ -1,8 +1,8 @@
 """
 Configuration settings for the MCP Server.
 
-This module centralizes all configuration parameters for the MCP (Model Context Protocol) 
-Server that controls HP PageWide printing press automation. It handles environment 
+This module centralizes all configuration parameters for the MCP (Model Context Protocol)
+Server that controls HP PageWide printing press automation. It handles environment
 variable loading, path configuration, and system-wide settings.
 
 Author: Suriyakrishnan Sathish & Rujula More
@@ -20,11 +20,11 @@ load_dotenv()
 
 # Server configuration
 # These settings control the MCP server instance behavior
-SERVER_NAME = "PrintSystem"    # Identifier for this MCP server instance
+SERVER_NAME = "PrintSystem"  # Identifier for this MCP server instance
 SERVER_HOST = os.getenv("HOST", "0.0.0.0")  # Host address (0.0.0.0 for all interfaces)
-SERVER_PORT = int(os.getenv("PORT", 8050)) # Port for MCP server (default: 8050)
-SERVER_TRANSPORT = "sse" # Server-Sent Events for real-time communication
-GROQ_API = os.getenv("groq") # API key for Groq LLM services (required)
+SERVER_PORT = int(os.getenv("PORT", 8050))  # Port for MCP server (default: 8050)
+SERVER_TRANSPORT = "sse"  # Server-Sent Events for real-time communication
+GROQ_API = os.getenv("groq")  # API key for Groq LLM services (required)
 
 # Path configuration
 # Dynamic path resolution for cross-platform compatibility

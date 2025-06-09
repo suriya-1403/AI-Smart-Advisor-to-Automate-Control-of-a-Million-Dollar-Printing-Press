@@ -31,23 +31,23 @@ from mcp_server.config import GROQ_API, LLM_MODEL
 def clean_response(response_text: str) -> str:
     """
     Clean up LLM knowledge responses by removing duplicate or generic sections.
-    
+
     This function post-processes LLM responses to remove common artifacts like
     redundant headers, generic placeholder text, and formatting inconsistencies
     that can occur in automated response generation.
-    
+
     Args:
         response_text (str): Raw response text from the LLM
-        
+
     Returns:
         str: Cleaned and formatted response text
-        
+
     Cleaning Operations:
         - Remove redundant "Knowledge Response" headers
         - Strip generic fallback content
         - Clean up formatting prefixes
         - Normalize whitespace and line breaks
-        
+
     Example:
         >>> raw_response = "Knowledge Response\\n\\n**Answer:**\\nExplanation here..."
         >>> cleaned = clean_response(raw_response)
@@ -77,27 +77,27 @@ def clean_response(response_text: str) -> str:
 def setup_general_knowledge_tools(mcp: FastMCP):
     """
     Set up general knowledge tools for the MCP server.
-    
+
     This function registers comprehensive educational tools that provide expert-level
     responses about HP PageWide printing concepts, technical specifications, and
     operational guidance.
-    
+
     Args:
         mcp (FastMCP): FastMCP server instance to register tools with
-        
+
     Raises:
         Exception: If tool registration fails
-        
+
     Registered Tools:
         - answer_general_question: Comprehensive educational responses
         - validate_printing_question: Query validation utility
         - get_topic_category: Query categorization utility
-        
+
     Registered Resources:
         - knowledge://topics: Available knowledge topics
         - knowledge://examples: Example questions
         - knowledge://categories: Topic categorization guide
-        
+
     Example:
         >>> server = FastMCP("PrintSystem")
         >>> setup_general_knowledge_tools(server)
@@ -109,17 +109,17 @@ def setup_general_knowledge_tools(mcp: FastMCP):
         """
         Answer general knowledge questions about printing concepts, media types,
         ink coverage, press operations, and HP PageWide technology.
-        
+
         This tool provides comprehensive educational responses covering all aspects
         of HP PageWide printing technology, from basic concepts to advanced
         technical specifications and optimization strategies.
-        
+
         Args:
             query (str): User's question about printing concepts
-            
+
         Returns:
             str: Comprehensive educational response with proper formatting
-            
+
         Capabilities:
             - Technical concept explanations
             - Equipment operation guidance
@@ -127,7 +127,7 @@ def setup_general_knowledge_tools(mcp: FastMCP):
             - Best practices and recommendations
             - Troubleshooting and optimization advice
             - Comparative analysis and decision support
-            
+
         Query Examples:
             - "Explain the difference between coated and uncoated media"
             - "How does heavy ink coverage affect media requirements?"
@@ -135,7 +135,6 @@ def setup_general_knowledge_tools(mcp: FastMCP):
             - "When should I use different quality modes?"
             - "How do winder tensions affect print quality?"
         """
-
 
         llm = ChatGroq(model=LLM_MODEL, api_key=GROQ_API)
 
@@ -217,13 +216,13 @@ def setup_general_knowledge_tools(mcp: FastMCP):
     def list_knowledge_topics() -> str:
         """
         List comprehensive knowledge topics that can be explained by the system.
-        
+
         This resource provides a detailed overview of all printing concepts,
         technologies, and operational areas covered by the knowledge system.
-        
+
         Returns:
             str: Organized list of available topics with examples
-            
+
         Example:
             >>> topics = list_knowledge_topics()
             >>> print(topics)
@@ -262,13 +261,13 @@ def setup_general_knowledge_tools(mcp: FastMCP):
     def get_example_questions() -> str:
         """
         Get comprehensive example questions organized by topic category.
-        
+
         This resource provides users with specific examples of questions
         that can be effectively answered by the knowledge system.
-        
+
         Returns:
             str: Categorized list of example questions
-            
+
         Example:
             >>> examples = get_example_questions()
             >>> print(examples)

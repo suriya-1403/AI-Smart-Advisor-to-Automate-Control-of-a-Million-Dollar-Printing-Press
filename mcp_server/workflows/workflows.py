@@ -43,10 +43,10 @@ llm = ChatGroq(model=LLM_MODEL, api_key=GROQ_API)
 class DocSearchState(TypedDict):
     """
     State schema for document search workflow.
-    
+
     This TypedDict defines the structure of data that flows through the
     document search workflow, ensuring type safety and clear interfaces.
-    
+
     Attributes:
         query (str): Original user search query
         enhanced_query (str): AI-enhanced query for better retrieval
@@ -66,21 +66,21 @@ class DocSearchState(TypedDict):
 def create_document_workflow(callbacks=None):
     """
     Create a comprehensive document search workflow using LangGraph.
-    
+
     This workflow implements a three-stage process for intelligent document
     retrieval: query enhancement, document search, and result summarization.
-    
+
     Args:
         callbacks (Optional[List]): Callbacks for workflow monitoring and debugging
-        
+
     Returns:
         StateGraph: Compiled workflow ready for execution
-        
+
     Workflow Stages:
         1. Query Enhancement: Optimize search terms using AI
         2. Document Search: Execute enhanced search via MCP tools
         3. Result Summarization: Generate concise summary of findings
-        
+
     Example:
         >>> workflow = create_document_workflow()
         >>> result = await workflow.ainvoke({
@@ -93,16 +93,16 @@ def create_document_workflow(callbacks=None):
     async def enhance_query(state: DocSearchState):
         """
         Enhance the user's search query for improved document retrieval.
-        
+
         This node applies AI-powered query optimization to improve search
         relevance by expanding terms, adding context, and refining language.
-        
+
         Args:
             state (DocSearchState): Current workflow state
-            
+
         Returns:
             Dict[str, str]: State update with enhanced_query
-            
+
         Enhancement Techniques:
             - Term expansion for technical concepts
             - Context addition for printing terminology
@@ -123,13 +123,13 @@ def create_document_workflow(callbacks=None):
     async def search_document(state: DocSearchState):
         """
         Execute document search using the enhanced query via MCP tools.
-        
+
         This node calls the MCP document search tool with the enhanced query
         to retrieve relevant printing event documents and specifications.
-        
+
         Args:
             state (DocSearchState): Current workflow state
-            
+
         Returns:
             Dict[str, str]: State update with document search results
         """
@@ -142,13 +142,13 @@ def create_document_workflow(callbacks=None):
     async def summarize(state: DocSearchState):
         """
         Generate an intelligent summary of the document search results.
-        
+
         This node creates a concise, informative summary of the retrieved
         documents, highlighting key findings and relevant details.
-        
+
         Args:
             state (DocSearchState): Current workflow state
-            
+
         Returns:
             Dict[str, str]: State update with summary content
         """
@@ -179,7 +179,7 @@ def create_document_workflow(callbacks=None):
 class RulesetState(TypedDict):
     """
     State schema for ruleset evaluation workflow.
-    
+
     Attributes:
         query (str): Original user configuration query
         formatted_parameters (str): AI-formatted parameter structure
@@ -199,21 +199,21 @@ class RulesetState(TypedDict):
 def create_ruleset_workflow(callbacks=None):
     """
     Create a comprehensive ruleset evaluation workflow for printer configuration.
-    
+
     This workflow processes user printing requirements through a multi-stage
     pipeline: parameter formatting, ruleset evaluation, and result explanation.
-    
+
     Args:
         callbacks (Optional[List]): Callbacks for workflow monitoring
-        
+
     Returns:
         StateGraph: Compiled workflow for configuration processing
-        
+
     Workflow Stages:
         1. Parameter Formatting: Structure user input for rule processing
         2. Ruleset Evaluation: Apply configuration rules via multi-agent system
         3. Result Explanation: Generate human-readable explanations
-        
+
     Example:
         >>> workflow = create_ruleset_workflow()
         >>> result = await workflow.ainvoke({
@@ -226,13 +226,13 @@ def create_ruleset_workflow(callbacks=None):
     async def format_parameters(state: RulesetState):
         """
         Format and structure printing parameters from user query.
-        
+
         This node converts various input formats into a standardized structure
         suitable for ruleset processing, ensuring consistency and completeness.
-        
+
         Args:
             state (RulesetState): Current workflow state
-            
+
         Returns:
             Dict[str, str]: State update with formatted_parameters
         """
@@ -260,13 +260,13 @@ def create_ruleset_workflow(callbacks=None):
     async def evaluate_ruleset(state: RulesetState):
         """
         Evaluate printing configuration using the multi-agent ruleset system.
-        
+
         This node executes the core configuration logic by calling the MCP
         ruleset evaluation tool and processing the structured results.
-        
+
         Args:
             state (RulesetState): Current workflow state
-            
+
         Returns:
             Dict[str, Any]: State update with evaluation results
         """
@@ -301,13 +301,13 @@ def create_ruleset_workflow(callbacks=None):
     async def explain_results(state: RulesetState):
         """
         Extract and format explanation from ruleset evaluation results.
-        
+
         This node processes the evaluation results to create clear, actionable
         explanations for users about the recommended configuration.
-        
+
         Args:
             state (RulesetState): Current workflow state
-            
+
         Returns:
             Dict[str, str]: State update with explanation text
         """
@@ -340,7 +340,7 @@ def create_ruleset_workflow(callbacks=None):
 class EventInfoState(TypedDict):
     """
     State schema for event information workflow.
-    
+
     Attributes:
         query (str): Original user query about specific events
         event_identifier (str): Extracted event ID or identifier
@@ -358,21 +358,21 @@ class EventInfoState(TypedDict):
 def create_event_workflow(callbacks=None):
     """
     Create a specialized workflow for comprehensive event information processing.
-    
+
     This workflow handles queries about specific printing events by extracting
     event identifiers and retrieving detailed information including metadata,
     PDF content analysis, and LLM-generated insights.
-    
+
     Args:
         callbacks (Optional[List]): Callbacks for workflow monitoring
-        
+
     Returns:
         StateGraph: Compiled workflow for event information processing
-        
+
     Workflow Stages:
         1. Event ID Extraction: Identify target event from user query
         2. Event Summary Retrieval: Get comprehensive event information
-        
+
     Example:
         >>> workflow = create_event_workflow()
         >>> result = await workflow.ainvoke({
@@ -381,19 +381,20 @@ def create_event_workflow(callbacks=None):
         ... })
         >>> print(result["summary"])
     """
+
     async def extract_event_id(state: EventInfoState):
         """
         Extract event identifier from user query using pattern matching.
-        
+
         This node analyzes the user query to identify specific event references
         and extract the event ID for subsequent processing.
-        
+
         Args:
             state (EventInfoState): Current workflow state
-            
+
         Returns:
             Dict[str, str]: State update with event_identifier
-            
+
         Raises:
             ValueError: If no valid event ID can be extracted
         """
@@ -411,13 +412,13 @@ def create_event_workflow(callbacks=None):
     async def fetch_event_summary(state: EventInfoState):
         """
         Retrieve comprehensive event summary including metadata and PDF analysis.
-        
+
         This node calls the event summary tool to get detailed information
         about the identified event, including JSON metadata and PDF content analysis.
-        
+
         Args:
             state (EventInfoState): Current workflow state
-            
+
         Returns:
             Dict[str, str]: State update with comprehensive summary
         """
@@ -438,10 +439,11 @@ def create_event_workflow(callbacks=None):
         compiled.callbacks = callbacks
     return compiled
 
+
 class GeneralKnowledgeState(TypedDict):
     """
     State schema for general knowledge workflow.
-    
+
     Attributes:
         query (str): Original user question about printing concepts
         formatted_query (str): AI-optimized query for knowledge retrieval
@@ -449,6 +451,7 @@ class GeneralKnowledgeState(TypedDict):
         final_answer (str): Formatted final answer for user presentation
         session (object): MCP ClientSession for tool communication
     """
+
     query: str
     formatted_query: str
     knowledge_response: str
@@ -460,21 +463,21 @@ class GeneralKnowledgeState(TypedDict):
 def create_general_knowledge_workflow(callbacks=None):
     """
     Create a comprehensive workflow for educational printing knowledge responses.
-    
+
     This workflow processes educational questions about printing concepts through
     a three-stage pipeline: query formatting, knowledge retrieval, and answer formatting.
-    
+
     Args:
         callbacks (Optional[List]): Callbacks for workflow monitoring
-        
+
     Returns:
         StateGraph: Compiled workflow for knowledge processing
-        
+
     Workflow Stages:
         1. Query Formatting: Optimize question for knowledge retrieval
         2. Knowledge Retrieval: Get expert-level response via MCP tools
         3. Answer Formatting: Structure response for optimal user experience
-        
+
     Example:
         >>> workflow = create_general_knowledge_workflow()
         >>> result = await workflow.ainvoke({
@@ -487,13 +490,13 @@ def create_general_knowledge_workflow(callbacks=None):
     async def format_knowledge_query(state: GeneralKnowledgeState):
         """
         Format and optimize the user's question for better knowledge retrieval.
-        
+
         This node enhances educational questions by adding context, clarifying
         technical terms, and structuring queries for optimal knowledge system response.
-        
+
         Args:
             state (GeneralKnowledgeState): Current workflow state
-            
+
         Returns:
             Dict[str, str]: State update with formatted_query
         """
@@ -511,13 +514,13 @@ def create_general_knowledge_workflow(callbacks=None):
     async def get_knowledge_response(state: GeneralKnowledgeState):
         """
         Retrieve comprehensive knowledge response using the MCP knowledge tool.
-        
+
         This node calls the specialized general knowledge tool to get expert-level
         educational responses about printing concepts and technologies.
-        
+
         Args:
             state (GeneralKnowledgeState): Current workflow state
-            
+
         Returns:
             Dict[str, str]: State update with knowledge_response
         """
@@ -537,13 +540,13 @@ def create_general_knowledge_workflow(callbacks=None):
     async def format_final_answer(state: GeneralKnowledgeState):
         """
         Format the final answer for optimal user presentation.
-        
+
         This node processes the raw knowledge response to create a well-structured,
         comprehensive answer that's easy to read and understand.
-        
+
         Args:
             state (GeneralKnowledgeState): Current workflow state
-            
+
         Returns:
             Dict[str, str]: State update with final_answer
         """
