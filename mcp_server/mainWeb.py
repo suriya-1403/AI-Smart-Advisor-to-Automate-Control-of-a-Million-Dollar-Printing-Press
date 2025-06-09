@@ -324,8 +324,8 @@ async def process_query(query: str):
         >>> print(result["type"])  # "document_search"
     """
     try:
-        # SSE_URL = f"http://{os.getenv('SSE_HOST')}:{os.getenv('SSE_PORT')}/sse"
-        SSE_URL = "http://localhost:8050/sse"
+        SSE_URL = f"http://{os.getenv('SSE_HOST')}:{os.getenv('SSE_PORT')}/sse"
+        # SSE_URL = "http://localhost:8050/sse"
         # Connect to the MCP server
         async with sse_client(SSE_URL) as (r, w):
             try:

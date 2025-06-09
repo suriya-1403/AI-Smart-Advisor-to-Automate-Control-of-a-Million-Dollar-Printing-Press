@@ -132,7 +132,7 @@ const ChatBot = () => {
   const [chatSuggestions, setChatSuggestions] = useState(() => getRandomSuggestions(allSuggestions, 2));
 
   // API endpoint configuration
-  const API_URL = `http://localhost:8000/query`;
+  const API_URL = `/query`;
 
   // Check for JSON files on component mount
   useEffect(() => {
@@ -140,7 +140,7 @@ const ChatBot = () => {
     setShowGreenDb(false);
     const checkJsonFiles = async () => {
       try {
-        const response = await fetch(`http://localhost:8000/check-json-files`);
+        const response = await fetch(`/check-json-files`);
         const data = await response.json();
         if (data.hasJsonFiles) {
           setHasJsonFiles(true);
