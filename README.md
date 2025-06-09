@@ -1,9 +1,9 @@
 
 # AI Smart Advisor to Automate Control of a Million Dollar Printing Press
-An intelligent Retrieval Augmented Generation (RAG) system for querying and analyzing HP test print reports.
+An intelligent hybrid system for querying and analyzing HP test print reports.
 
 # Overview
-This branch contains the Hybrid RAG component of the HP Print Report Analysis system. It enables users to query processed print reports using natural language, making it easy to search for specific printing configurations and retrieve relevant documents based on technical parameters.
+This branch contains the Hybrid component of the HP Print Report Analysis system. It enables users to query processed print reports using natural language, making it easy to search for specific printing configurations and retrieve relevant documents based on technical parameters.
 The complete HP Print Report Analysis system consists of two main components:
 
 Data Preprocessing Pipeline: Transforms unstructured PDF test print reports into structured JSON files (not included in this branch)
